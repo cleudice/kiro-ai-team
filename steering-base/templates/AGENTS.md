@@ -1,7 +1,8 @@
 # AGENTS.md — regras para QUALQUER agente de IA neste repositório
+
 (Padrão aberto agents.md — vale para Kiro, Claude, Codex, Cursor etc.)
 
-Este repo é governado pelo **ai-team**. Antes de qualquer mudança:
+Este repo é governado pelo **kiro-ai-team**. Antes de qualquer mudança:
 
 1. Leia `.kiro/steering/workflow.md`, `escalation-rules.md` e `quality-gates.md`.
 2. Trabalho entra por `docs/issues/`; specs em `.kiro/specs/<slug>/` (requirements → design → tasks).

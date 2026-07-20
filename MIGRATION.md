@@ -1,18 +1,18 @@
-# MIGRATION — do agent-skills antigo para o ai-team
+# MIGRATION — do agent-skills antigo para o kiro-ai-team
 
-Instalar o ai-team num ambiente que já tem as skills anteriores cria **duplicatas concorrendo pelo trigger** (duas descriptions parecidas = disparo errático). Migre antes do primeiro PBI.
+Instalar o kiro-ai-team num ambiente que já tem as skills anteriores cria **duplicatas concorrendo pelo trigger** (duas descriptions parecidas = disparo errático). Migre antes do primeiro PBI.
 
 ## Mapa de migração
 
-| Skill antiga | No ai-team | Ação |
-|---|---|---|
-| `write-prd` | `write-requirements` (formato Kiro/EARS) | **remover** a antiga |
-| `plan-change` | `write-tasks` | **remover** |
-| `implement-change` | `implement-task` | **remover** |
-| `review-change` | `review-spec` + `review-code` (split adversarial) | **remover** |
-| `dotnet-guidelines` (skill) | `steering/guidelines/dotnet.md` (fileMatch) | **remover** a skill |
-| `issue-analysis`, `feature-spec` (era OpenCode) | `triage-issue` / `write-requirements` | **remover** |
-| `write-design`, `verify-change`, `triage-issue`, `resolve-issue`, `triage-crash`, `reverse-engineer-project` | mesmo nome | sobrescritas pelo install — nada a fazer |
+| Skill antiga                                                                                                 | No kiro-ai-team                                   | Ação                                     |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------- |
+| `write-prd`                                                                                                  | `write-requirements` (formato Kiro/EARS)          | **remover** a antiga                     |
+| `plan-change`                                                                                                | `write-tasks`                                     | **remover**                              |
+| `implement-change`                                                                                           | `implement-task`                                  | **remover**                              |
+| `review-change`                                                                                              | `review-spec` + `review-code` (split adversarial) | **remover**                              |
+| `dotnet-guidelines` (skill)                                                                                  | `steering/guidelines/dotnet.md` (fileMatch)       | **remover** a skill                      |
+| `issue-analysis`, `feature-spec` (era OpenCode)                                                              | `triage-issue` / `write-requirements`             | **remover**                              |
+| `write-design`, `verify-change`, `triage-issue`, `resolve-issue`, `triage-crash`, `reverse-engineer-project` | mesmo nome                                        | sobrescritas pelo install — nada a fazer |
 
 ## Passos
 
@@ -31,4 +31,5 @@ Instalar o ai-team num ambiente que já tem as skills anteriores cria **duplicat
 5. Repositórios que referenciam nomes antigos em steering/hooks/docs: `grep -rl 'plan-change\|write-prd\|implement-change\|review-change' .kiro/ docs/ || true` e atualize.
 
 ## Regra permanente
+
 Um nome de skill existe em **um** lugar (local OU global, nunca ambos) e com **uma** versão. Duplicata é bug, não redundância.

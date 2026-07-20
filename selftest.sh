@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# selftest do ai-team — os gates aplicados ao próprio repo. exit 0 = íntegro.
+# selftest do kiro-ai-team — os gates aplicados ao próprio repo. exit 0 = íntegro.
 set -uo pipefail; cd "$(dirname "$0")"; FAIL=0
 bad(){ echo "✘ $1"; FAIL=1; }; ok(){ echo "✔ $1"; }
 for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh; do

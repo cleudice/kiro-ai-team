@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ai-team installer — escopos: project (padrão) | global | hybrid
+# kiro-ai-team installer — escopos: project (padrão) | global | hybrid
 #
 # uso:
 #   ./install.sh <projeto>                      # tudo no repo do projeto (padrão)
@@ -16,6 +16,8 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 VER="$(cat "$SRC/VERSION")"
 KIRO_HOME="${KIRO_HOME:-$HOME/.kiro}"
+VERFILE=".kiro-ai-team-version"
+OLD_VERFILE=".ai-team-version"
 SCOPE="project"; MODE="install"; DEST=""
 
 while [ $# -gt 0 ]; do
@@ -35,7 +37,8 @@ install_engine() {  # $1 = raiz .kiro de destino
   mkdir -p "$K/agents" "$K/skills"
   cp -f  "$SRC"/agents/*.json "$K/agents/"
   cp -rf "$SRC"/skills/*      "$K/skills/"
-  echo "$VER" > "$K/.ai-team-version"
+  echo "$VER" > "$K/$VERFILE"
+  rm -f "$K/$OLD_VERFILE"
   echo "  ✔ engine v$VER → $K (agents + skills)"
 }
 
@@ -52,20 +55,25 @@ install_project_layer() {  # $1 = raiz do projeto
     [ -f "$K/steering/$t.md" ] || cp "$SRC/steering-base/templates/$t.md" "$K/steering/$t.md"
   done
   [ -f "$P/AGENTS.md" ] || { cp "$SRC/steering-base/templates/AGENTS.md" "$P/AGENTS.md"; echo "  ✔ AGENTS.md → raiz do projeto (padrão aberto p/ Codex/Cursor/etc.)"; }
-  echo "$VER" > "$K/.ai-team-version"
+  echo "$VER" > "$K/$VERFILE"
+  rm -f "$K/$OLD_VERFILE"
   echo "  ✔ camada do projeto → $P (steering + docs/)"
 }
 
 warn_version_mismatch() {
   local PV GV
-  [ -n "$DEST" ] && [ -f "$DEST/.kiro/.ai-team-version" ] && PV="$(cat "$DEST/.kiro/.ai-team-version")" || PV=""
-  [ -f "$KIRO_HOME/.ai-team-version" ] && GV="$(cat "$KIRO_HOME/.ai-team-version")" || GV=""
+  if [ -n "$DEST" ] && [ -f "$DEST/.kiro/$VERFILE" ]; then PV="$(cat "$DEST/.kiro/$VERFILE")"
+  elif [ -n "$DEST" ] && [ -f "$DEST/.kiro/$OLD_VERFILE" ]; then PV="$(cat "$DEST/.kiro/$OLD_VERFILE")"
+  else PV=""; fi
+  if [ -f "$KIRO_HOME/$VERFILE" ]; then GV="$(cat "$KIRO_HOME/$VERFILE")"
+  elif [ -f "$KIRO_HOME/$OLD_VERFILE" ]; then GV="$(cat "$KIRO_HOME/$OLD_VERFILE")"
+  else GV=""; fi
   if [ -n "$PV" ] && [ -n "$GV" ] && [ "$PV" != "$GV" ]; then
     echo "  ⚠ versões divergentes: projeto=$PV global=$GV — no escopo hybrid, a engine GLOBAL vence; atualize um dos lados."
   fi
 }
 
-echo "ai-team v$VER — escopo: $SCOPE"
+echo "kiro-ai-team v$VER — escopo: $SCOPE"
 case "$SCOPE" in
   project)
     install_engine "$DEST/.kiro"
