@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "name": "format-flutter",
+  "description": "dart format + flutter analyze ao salvar Dart",
+  "version": "1",
+  "when": { "type": "fileEdited", "patterns": ["**/*.dart"] },
+  "then": { "type": "askAgent", "prompt": "Rode 'dart format' no arquivo alterado e 'flutter analyze'. Reporte apenas problemas." }
+}

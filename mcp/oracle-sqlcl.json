@@ -1,0 +1,5 @@
+{ "mcpServers": { "oracle-sqlcl": {
+  "comment": "SQLcl MCP. Donos: dev-webforms, auditor. No Windows usar o wrapper Git Bash (workaround sql.exe/Java).",
+  "command": "sql", "args": ["-mcp"],
+  "disabled": false, "autoApprove": []
+} } }

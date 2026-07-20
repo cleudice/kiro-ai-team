@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "name": "post-merge-audit",
+  "description": "Lembrete de audit-integration a cada 5 merges (ativar por projeto)",
+  "version": "1",
+  "when": { "type": "manual" },
+  "then": { "type": "askAgent", "prompt": "Verifique quantos merges pbi/* ocorreram desde a última auditoria (docs/reviews/ e git log). Se >= 5, execute a skill audit-integration como auditor." }
+}

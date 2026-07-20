@@ -1,0 +1,5 @@
+{ "mcpServers": { "firebase": {
+  "comment": "Crashlytics/Firestore/Auth via firebase-tools. Donos: dev-flutter, triage-crash.",
+  "command": "npx", "args": ["-y", "firebase-tools", "experimental:mcp"],
+  "disabled": false, "autoApprove": []
+} } }

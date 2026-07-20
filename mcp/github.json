@@ -1,0 +1,6 @@
+{ "mcpServers": { "github": {
+  "comment": "Issues/PRs GitHub. Donos: orchestrator, triage-issue/resolve-issue.",
+  "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" },
+  "disabled": false, "autoApprove": ["get_issue", "list_issues"]
+} } }

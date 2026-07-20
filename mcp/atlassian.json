@@ -1,0 +1,5 @@
+{ "mcpServers": { "atlassian": {
+  "comment": "Jira + Bitbucket. Donos: orchestrator, spec-analyst. Ajustar credenciais/URL do toolkit interno.",
+  "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/mcp"],
+  "disabled": false, "autoApprove": ["getJiraIssue", "search"]
+} } }

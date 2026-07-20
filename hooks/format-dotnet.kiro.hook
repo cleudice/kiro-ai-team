@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "name": "format-dotnet",
+  "description": "Formata e compila incrementalmente ao salvar C#",
+  "version": "1",
+  "when": { "type": "fileEdited", "patterns": ["**/*.cs"] },
+  "then": { "type": "askAgent", "prompt": "Rode 'dotnet format' no projeto do arquivo alterado e um build incremental. Reporte apenas erros." }
+}

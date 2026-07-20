@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "name": "issue-intake",
+  "description": "Novo brief em docs/issues → orchestrator triagem",
+  "version": "1",
+  "when": { "type": "fileCreated", "patterns": ["docs/issues/*.md"] },
+  "then": { "type": "askAgent", "prompt": "Um novo brief chegou em docs/issues/. Como orchestrator: classifique o trilho (feature|manutenção) e proponha o próximo passo do workflow." }
+}

@@ -1,0 +1,5 @@
+{ "mcpServers": { "azure-devops": {
+  "comment": "Azure Boards. Donos: orchestrator, triage-issue/resolve-issue.",
+  "command": "npx", "args": ["-y", "@azure-devops/mcp", "${AZDO_ORG}"],
+  "disabled": false, "autoApprove": ["wit_get_work_item"]
+} } }

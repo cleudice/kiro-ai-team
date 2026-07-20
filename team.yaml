@@ -1,0 +1,18 @@
+name: ai-team
+version: 1.1.0
+description: Governança multiagente para Kiro — ciclo completo feature + manutenção
+scopes:
+  project: engine + steering + docs no repo (padrão; versão pinada por projeto)
+  global: engine (agents+skills) em ~/.kiro, compartilhada entre todos os repos
+  hybrid: engine global + camada fina por projeto (steering/docs); engine local omitida
+artifacts:
+  engine:
+    agents: "agents/*.json -> {scope}/.kiro|~/.kiro/agents"
+    skills: "skills/* -> {scope}/.kiro|~/.kiro/skills"
+  project_only:                    # steering do Kiro é por workspace — nunca global
+    steering_shared: "escalation-rules, quality-gates, workflow, guidelines/ (sobrescreve no update)"
+    steering_templates: "product, tech, structure, retro-learnings (só se ausentes)"
+    docs: "docs/{issues,reviews,context,tests-spec}"
+  manual_merge:
+    hooks: "hooks/*.kiro.hook -> .kiro/hooks do projeto (opcionais)"
+    mcp: "mcp/*.json -> .kiro/settings/mcp.json OU ~/.kiro/settings/mcp.json"
