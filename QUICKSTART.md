@@ -10,17 +10,22 @@ Guia de onboarding: como instalar, operar o dia a dia e decidir quando usar (ou 
 
 ```bash
 git clone <org>/kiro-ai-team
-./kiro-ai-team/install.sh /caminho/do/projeto      # primeira vez
-./kiro-ai-team/install.sh /caminho/do/projeto --update   # atualizar versão
+./kiro-ai-team/install.sh /caminho/do/projeto --stack dotnet    # repo só .NET — recomendado
+./kiro-ai-team/install.sh /caminho/do/projeto                   # sem --stack: instala TODOS os stacks (dev-dotnet/webforms/flutter + guidelines) — pode dele depois
+./kiro-ai-team/install.sh /caminho/do/projeto --update          # atualizar versão (mesmo --stack usado na instalação original)
 ```
+
+`--stack dotnet|webforms|flutter` instala só o(s) agente(s) `dev-*` e guideline(s) do stack informado (mais os 6 papéis stack-agnósticos: orchestrator, spec-analyst, qa-blackbox, reviewer-spec, reviewer-code, auditor). Repo multi-stack (ex.: backend .NET + app Flutter) → omita `--stack` e pode manualmente os agentes/guidelines que sobrarem sem uso (`.kiro/agents/dev-*.json`, `.kiro/steering/guidelines/*.md`) — instalar `dev-flutter` num repo sem Flutter é ruído que pode confundir o orchestrator na hora de rotear.
 
 Depois do install:
 
 1. **MCP** — mescle em `.kiro/settings/mcp.json` apenas os fragmentos de `kiro-ai-team/mcp/` que este repo usa (Jira/Bitbucket? GitHub? Firebase? SQLcl?). Preencha credenciais/workarounds locais.
-2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido (format-dotnet, format-flutter, issue-intake…).
+2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido (format-dotnet, format-flutter, issue-intake…). Alguns já vêm com `"enabled": false` de propósito (ex.: `post-merge-audit`, é `"when": {"type": "manual"}` — dispara só quando você pedir, não por gatilho automático). Pra ativar por gatilho automático: edite o campo `"enabled"` do `.kiro.hook` pra `true` e confirme o `"when"` desejado (`fileEdited`, `fileCreated` etc.) — não há necessidade de painel de UI, é edição direta do JSON.
 3. **Steering do projeto** — preencha `product.md`, `tech.md` (build/test commands!) e `structure.md`. Atalho: rode a skill `reverse-engineer-project`, que gera `docs/context/` e preenche os templates vazios.
 4. **Vindo do agent-skills antigo?** Siga [MIGRATION.md](MIGRATION.md) ANTES do primeiro PBI (duplicata de skill = trigger errático).
 5. **Commit do `.kiro/` + `AGENTS.md`** — o time é versionado junto do código; quem clonar o repo herda o time.
+6. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; o Kiro tem quirk conhecido de indexação (mesmo quirk documentado no [MIGRATION.md](MIGRATION.md) pra quem já tinha skills antigas). Confirme no painel "Agent Steering & Skills" que os 6-9 agentes e as skills aparecem antes do primeiro PBI.
+7. **(Recomendado) `kiroAgent.trustedCommands`** — sem isso, todo `dotnet test`/`flutter test`/`check-gates.sh` pede aprovação manual. Configure em Settings → Kiro Agent: Trusted Commands (global ou por workspace) os comandos de build/test do seu stack, com `*` no final pra aceitar argumentos (ex.: `"dotnet test *"`, `"git status *"`). Nunca confie largo em comandos destrutivos (`git push`, `git reset --hard`, `npx *`) nem em `check-gates.sh` (recebe `--test-cmd` arbitrário — aprovação manual aqui é intencional).
 
 Sanidade: `.kiro/.kiro-ai-team-version` deve mostrar a versão instalada.
 
@@ -45,6 +50,11 @@ Notas:
 
 Você conversa quase só com o **orchestrator**. Fluxo típico:
 
+**Como a ativação funciona de fato:**
+
+- **Skill**: você nunca digita o nome da skill — o Kiro casa sua frase contra o campo `description` de cada `SKILL.md` (por isso as descriptions são escritas como lista de gatilhos: "Use quando disserem 'X', 'Y'"). Fale em linguagem natural o que quer fazer.
+- **Agente**: cada `.kiro/agents/*.json` é um agente customizado selecionável no seletor de agente do chat (canto do painel, ao lado do model picker). Trocar de agente **nesse mesmo seletor mantém o histórico da conversa** — o agente novo enxerga tudo que foi dito antes. Isso é o oposto do que "sessão limpa" precisa (ver Passo 4).
+
 ### Passo 1 — Entrada
 
 > "orchestrator, faça a triagem da PROJ-1234"
@@ -66,13 +76,14 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 ```
 
 - No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "execute as tasks do PBI PROJ-1234" (`implement-task`, uma task por commit).
-- Em **outra sessão**: agente `qa-blackbox` → `write-blackbox-tests`. Ele lê só a spec, nunca `src/` — não interfira nisso, é o mecanismo central.
+- "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele lê só a spec, nunca `src/` — não interfira nisso, é o mecanismo central.
 - Dev terminou → `verify-change` com evidência real (não aceite "pronto").
 
 ### Passo 4 — Qualidade e merge
 
-- Sessão limpa 1: `reviewer-spec` → `review-spec` (diff × requirements).
-- Sessão limpa 2: `reviewer-code` → `review-code`.
+- **Sessão limpa de verdade = aba nova.** Trocar de agente no seletor do MESMO painel mantém o histórico — o revisor veria a conversa do dev e a revisão deixa de ser adversarial. Abra aba nova ("+" ou `/chat new`) pra cada revisor abaixo:
+  - Sessão limpa 1 (aba nova): `reviewer-spec` → `review-spec` (diff × requirements).
+  - Sessão limpa 2 (outra aba nova): `reviewer-code` → `review-code`.
 - > "orchestrator, merge-gate do PROJ-1234"
   > Ele confere as 5 evidências **em disco**, roda a regressão, mescla serializado, `worktree.sh finish`, e fecha no tracker de origem com `resolve-issue`.
 

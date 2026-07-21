@@ -3,9 +3,11 @@
 #
 # uso:
 #   ./install.sh <projeto>                      # tudo no repo do projeto (padrão)
+#   ./install.sh <projeto> --stack dotnet       # só agente(s)+guideline(s) do stack informado
 #   ./install.sh --scope global                 # engine (agents+skills) em ~/.kiro
 #   ./install.sh <projeto> --scope hybrid       # engine global + camada fina no projeto
 #   flags extras: --update    --kiro-home <dir>  (default: $HOME/.kiro)
+#   --stack dotnet|webforms|flutter|multi  (default: multi = instala tudo, sem podar — poda manual depois)
 #
 # O que vai para onde:
 #   engine  (agents/, skills/)                → project ou global, conforme escopo
@@ -18,11 +20,12 @@ VER="$(cat "$SRC/VERSION")"
 KIRO_HOME="${KIRO_HOME:-$HOME/.kiro}"
 VERFILE=".kiro-ai-team-version"
 OLD_VERFILE=".ai-team-version"
-SCOPE="project"; MODE="install"; DEST=""
+SCOPE="project"; MODE="install"; DEST=""; STACK=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --scope) SCOPE="${2:?project|global|hybrid}"; shift 2;;
+    --stack) STACK="${2:?dotnet|webforms|flutter|multi}"; shift 2;;
     --update) MODE="update"; shift;;
     --kiro-home) KIRO_HOME="${2:?dir}"; shift 2;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
@@ -30,16 +33,43 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$SCOPE" in project|global|hybrid) ;; *) echo "escopo inválido: $SCOPE"; exit 1;; esac
+case "$STACK" in ""|dotnet|webforms|flutter|multi) ;; *) echo "stack inválido: $STACK"; exit 1;; esac
 [ "$SCOPE" = "global" ] || [ -n "$DEST" ] || { echo "informe o caminho do projeto (ou use --scope global)"; exit 1; }
+
+CORE_AGENTS="orchestrator.json spec-analyst.json qa-blackbox.json reviewer-spec.json reviewer-code.json auditor.json"
+
+stack_dev_agents() {
+  case "$STACK" in
+    dotnet) echo "dev-dotnet.json";;
+    webforms) echo "dev-webforms.json";;
+    flutter) echo "dev-flutter.json";;
+    multi|"") echo "dev-dotnet.json dev-webforms.json dev-flutter.json";;
+  esac
+}
+
+stack_guidelines() {
+  case "$STACK" in
+    dotnet) echo "dotnet.md";;
+    webforms) echo "webforms.md oracle.md";;
+    flutter) echo "flutter.md";;
+    multi|"") echo "dotnet.md webforms.md flutter.md oracle.md";;
+  esac
+}
 
 install_engine() {  # $1 = raiz .kiro de destino
   local K="$1"
   mkdir -p "$K/agents" "$K/skills"
-  cp -f  "$SRC"/agents/*.json "$K/agents/"
+  for a in $CORE_AGENTS $(stack_dev_agents); do
+    cp -f "$SRC/agents/$a" "$K/agents/"
+  done
   cp -rf "$SRC"/skills/*      "$K/skills/"
   echo "$VER" > "$K/$VERFILE"
   rm -f "$K/$OLD_VERFILE"
-  echo "  ✔ engine v$VER → $K (agents + skills)"
+  if [ -z "$STACK" ]; then
+    echo "  ✔ engine v$VER → $K (agents + skills — todos os stacks; use --stack dotnet|webforms|flutter pra instalar só o necessário)"
+  else
+    echo "  ✔ engine v$VER → $K (agents + skills — stack: $STACK)"
+  fi
 }
 
 install_project_layer() {  # $1 = raiz do projeto
@@ -49,7 +79,9 @@ install_project_layer() {  # $1 = raiz do projeto
   cp -f "$SRC"/steering-base/escalation-rules.md "$K/steering/"
   cp -f "$SRC"/steering-base/quality-gates.md    "$K/steering/"
   cp -f "$SRC"/steering-base/workflow.md         "$K/steering/"
-  cp -f "$SRC"/steering-base/guidelines/*.md     "$K/steering/guidelines/"
+  for g in $(stack_guidelines); do
+    cp -f "$SRC/steering-base/guidelines/$g" "$K/steering/guidelines/"
+  done
   # steering do projeto (só se ausente — pertence ao projeto)
   for t in product tech structure retro-learnings; do
     [ -f "$K/steering/$t.md" ] || cp "$SRC/steering-base/templates/$t.md" "$K/steering/$t.md"
