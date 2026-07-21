@@ -19,6 +19,21 @@ description: (Somente qa-blackbox) Escreve os testes de aceitação usando APENA
 4. Salvar: código no diretório de testes; especificação + rastreabilidade em `docs/tests-spec/<slug>.md` (nome exato — é o que `check-gates.sh` procura para o gate G1).
 5. Quando nenhuma task de `dev-*` existir no PBI (design decidiu zero mudança de produção), você também é dono do gate G2 (verify-change) — rodar a suíte de verdade e produzir `docs/reviews/<PBI>-verify.md` (skill `verify-change`).
 
+## Saída — docs/tests-spec/<slug>.md
+
+```
+# Tests spec — <slug> (PBI-<id>)
+Executor: qa-blackbox. Escrito só a partir de requirements.md/design.md.
+## Rastreabilidade R#.# → teste
+| Critério | Arquivo de teste | Testes |
+| --- | --- | --- |
+| R1.1, R1.2 | <Classe>Tests.cs | N |
+## Fixtures (se houver)
+<arquivo> — <propósito>
+## Cobertura
+Total de testes / critérios cobertos. Lacuna encontrada (contrato ausente, critério vago) → registrar aqui e devolver ao spec-analyst, nunca inventar.
+```
+
 ## Regras
 
 - Teste deve falhar de forma diagnóstica (mensagem aponta o critério violado).

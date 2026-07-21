@@ -15,6 +15,19 @@ description: Checklist final mecânico do PBI — executa scripts/check-gates.sh
 5. G5: na branch alvo, `git merge --no-commit --no-ff pbi/<PBI>` + suíte completa. Verde → efetivar o merge (serializado — um PBI por vez), `scripts/worktree.sh finish <PBI>`; vermelho → `git merge --abort` e devolver ao dev.
 6. Após o merge efetivo: `check-gates.sh bump-counter` (agenda audit-integration a cada 5) e acionar resolve-issue.
 
+## Saída — docs/reviews/<PBI>-gate.md (só quando reprovado — passo 3)
+
+```
+# Merge Gate — <PBI> (<slug>)
+Executor: orchestrator  Data: <data>  Veredicto: REPROVADO
+## Saída do check-gates.sh
+<colar a saída completa do script — não resumir, não reinterpretar>
+## Gate(s) reprovado(s) e devolvido(s) para
+- G<n> → <papel dono> — <o que falta em disco>
+```
+
+G5 verde e merge efetivado: não precisa gerar este arquivo — a evidência do sucesso já é o próprio commit de merge + os arquivos G1–G4 que passaram.
+
 ## Regras
 
 - Este gate não avalia qualidade — confere evidência. O julgamento já aconteceu nos papéis anteriores.
