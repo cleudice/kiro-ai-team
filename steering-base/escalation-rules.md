@@ -1,7 +1,6 @@
 ---
 inclusion: always
 ---
-
 # Regras de escalação — nunca chute
 
 O modo de falha mais perigoso é código escrito com confiança sobre um palpite silencioso.

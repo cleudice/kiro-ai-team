@@ -1,5 +1,4 @@
 # AGENTS.md — regras para QUALQUER agente de IA neste repositório
-
 (Padrão aberto agents.md — vale para Kiro, Claude, Codex, Cursor etc.)
 
 Este repo é governado pelo **kiro-ai-team**. Antes de qualquer mudança:

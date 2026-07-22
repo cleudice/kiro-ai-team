@@ -3,6 +3,7 @@
 Guia de onboarding: como instalar, operar o dia a dia e decidir quando usar (ou não usar) o time.
 
 > Ciclo de vida completo de steering, specs e `docs/context/` (quem cria, quando muda, quem lê): [MANUAL.md](MANUAL.md)
+> Ficha de cada agente/skill — o que faz, quando usar, como usar: [CATALOGO.md](CATALOGO.md)
 
 ---
 
@@ -20,7 +21,7 @@ git clone <org>/kiro-ai-team
 Depois do install:
 
 1. **MCP** — mescle em `.kiro/settings/mcp.json` apenas os fragmentos de `kiro-ai-team/mcp/` que este repo usa (Jira/Bitbucket? GitHub? Firebase? SQLcl?). Preencha credenciais/workarounds locais.
-2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido (format-dotnet, format-flutter, issue-intake…). Alguns já vêm com `"enabled": false` de propósito (ex.: `post-merge-audit`, é `"when": {"type": "manual"}` — dispara só quando você pedir, não por gatilho automático). Pra ativar por gatilho automático: edite o campo `"enabled"` do `.kiro.hook` pra `true` e confirme o `"when"` desejado (`fileEdited`, `fileCreated` etc.) — não há necessidade de painel de UI, é edição direta do JSON.
+2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido (format-dotnet, format-flutter, issue-intake…). O Kiro migra sozinho hooks de gatilho de arquivo (`fileEdited`/`fileCreated`) pro schema real dele (`version`+`hooks[]`+`trigger`+`matcher`+`action`) — confirme depois no painel "Agent Hooks" que o hook aparece; se não aparecer, o `.kiro.hook` provavelmente usa um gatilho que a migração automática não converte (ex.: `"when":{"type":"manual"}` não tem conversão confiável) — recrie via UI do Kiro (painel → criar hook → tipo manual/sob-demanda) copiando a description/prompt, em vez de confiar na migração pra esse tipo. Lembrete de auditoria a cada 5 merges já é feito por texto puro pelo próprio `check-gates.sh` — não depende de hook.
 3. **Steering do projeto** — preencha `product.md`, `tech.md` (build/test commands!) e `structure.md`. Atalho: rode a skill `reverse-engineer-project`, que gera `docs/context/` e preenche os templates vazios.
 4. **Vindo do agent-skills antigo?** Siga [MIGRATION.md](MIGRATION.md) ANTES do primeiro PBI (duplicata de skill = trigger errático).
 5. **Commit do `.kiro/` + `AGENTS.md`** — o time é versionado junto do código; quem clonar o repo herda o time.
@@ -75,7 +76,8 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 ./kiro-ai-team/scripts/worktree.sh start PROJ-1234
 ```
 
-- No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "execute as tasks do PBI PROJ-1234" (`implement-task`, uma task por commit).
+- No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "prepare o worktree do PBI PROJ-1234" (`task-preflight`: confirma branch + build verde).
+- No painel da spec (`.kiro/specs/<slug>/tasks.md`): clique **"Start task"** nativo do Kiro em cada item, na ordem — é o Kiro quem implementa. Após cada `[x]`: checkpoint de build/teste (`task-preflight`) antes de seguir para a próxima.
 - "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele lê só a spec, nunca `src/` — não interfira nisso, é o mecanismo central.
 - Dev terminou → `verify-change` com evidência real (não aceite "pronto").
 

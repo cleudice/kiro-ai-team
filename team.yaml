@@ -1,5 +1,5 @@
 name: kiro-ai-team
-version: 1.3.0
+version: 1.5.0
 description: Governança multiagente para Kiro — ciclo completo feature + manutenção
 scopes:
   project: engine + steering + docs no repo (padrão; versão pinada por projeto)

@@ -12,4 +12,4 @@ description: Verifica que a mudança FUNCIONA exercitando comportamento real (HT
 Por critério: `R1.1 — PASS|FAIL|BLOCKED — evidência: <captura/trecho>`.
 ## Regras
 - PASS só com evidência observada. "Deveria funcionar" = FAIL.
-- Qualquer FAIL devolve ao implement-task; nada segue para review com verify vermelho.
+- Qualquer FAIL devolve ao dev-* (via task-preflight) ou ao qa-blackbox, conforme quem é dono da task; nada segue para review com verify vermelho.
