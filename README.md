@@ -61,12 +61,13 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
 ## Instalação num projeto
 
 ```bash
-./install.sh /caminho/do/projeto                 # padrão: tudo no repo (recomendado)
-./install.sh --scope global                      # engine em ~/.kiro (todos os repos)
-./install.sh /caminho/do/projeto --scope hybrid  # engine global + camada do projeto
-./install.sh /caminho/do/projeto --update        # atualizar versão
+./install.sh /caminho/do/projeto --stack dotnet   # recomendado: só o dev do stack deste repo
+./install.sh /caminho/do/projeto                  # sem --stack: instala os 3 devs (dotnet/webforms/flutter)
+./install.sh --scope global                       # engine em ~/.kiro (todos os repos)
+./install.sh /caminho/do/projeto --scope hybrid   # engine global + camada do projeto
+./install.sh /caminho/do/projeto --update         # atualizar versão (mesmo --stack da instalação original)
 ```
-Steering e docs/ são sempre por projeto (steering do Kiro é por workspace). Detalhes e trade-offs: [QUICKSTART.md](QUICKSTART.md).
+Steering e docs/ são sempre por projeto (steering do Kiro é por workspace). Detalhes, `--stack` e trade-offs: [QUICKSTART.md](QUICKSTART.md).
 
 Copia agentes + skills + steering-base, instancia os templates de steering do projeto (se ausentes) e grava a versão em `.kiro/.kiro-ai-team-version`.
 
@@ -81,3 +82,4 @@ Copia agentes + skills + steering-base, instancia os templates de steering do pr
 | reviewer-requisitos/codigo | `reviewer-spec` / `reviewer-code` | padrão `reviewer-<eixo>` |
 | write-prd / plan-change | `write-requirements` / `write-tasks` | espelham os arquivos nativos do Kiro |
 | audit-sprint | `audit-integration` | nomeia o que audita |
+| implement-task | `task-preflight` | deixou de "implementar" — quem executa a task é o "Start task" nativo do Kiro; o skill só prepara (worktree/build) e faz checkpoint |

@@ -36,12 +36,12 @@ if [ ! -f "$V" ]; then bad "G2 ausente: $V"
 elif grep -qE '\b(FAIL|BLOCKED)\b' "$V"; then bad "G2 contém FAIL/BLOCKED em $V"
 elif grep -qE '\bPASS\b' "$V"; then ok "G2 verify: só PASS"
 else bad "G2 sem veredictos PASS em $V"; fi
-# G3/G4 — reviews
+# G3/G4 — reviews (exige a linha-âncora "Veredicto: APROVADO|REPROVADO" — não vasculha o corpo do texto)
 for g in spec:G3 code:G4; do f="$R/$PBI-${g%%:*}.md"; tag="${g##*:}"
   if [ ! -f "$f" ]; then bad "$tag ausente: $f"
-  elif grep -q 'REPROVADO' "$f"; then bad "$tag REPROVADO em $f"
-  elif grep -q 'APROVADO' "$f"; then ok "$tag APROVADO ($f)"
-  else bad "$tag sem veredicto APROVADO em $f"; fi
+  elif grep -qE '^Veredicto: *REPROVADO' "$f"; then bad "$tag REPROVADO em $f"
+  elif grep -qE '^Veredicto: *APROVADO' "$f"; then ok "$tag APROVADO ($f)"
+  else bad "$tag sem linha-âncora 'Veredicto: APROVADO' em $f"; fi
 done
 # G5 — regressão pós-merge simulado (instrução; execução exige o merge --no-commit)
 if [ -n "$TESTCMD" ]; then

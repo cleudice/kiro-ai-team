@@ -1,6 +1,6 @@
 # MANUAL — Referência completa dos artefatos
 
-Complementa o [README](README.md) (visão) e o [QUICKSTART](QUICKSTART.md) (operação): aqui está **como cada artefato nasce, vive e morre** — quem cria, quando muda, quem lê.
+Complementa o [README](README.md) (visão), o [QUICKSTART](QUICKSTART.md) (operação) e o [CATALOGO](CATALOGO.md) (ficha de cada agente/skill): aqui está **como cada artefato nasce, vive e morre** — quem cria, quando muda, quem lê.
 
 ---
 
