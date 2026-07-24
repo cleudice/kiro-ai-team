@@ -33,7 +33,7 @@ Depois do install:
 5. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; confirme no painel "Agent Steering & Skills" que os 6-9 agentes e as skills aparecem antes do primeiro PBI.
 6. **(Recomendado) `kiroAgent.trustedCommands`** — sem isso, todo `dotnet test`/`flutter test`/`check-gates.sh` pede aprovação manual. Configure em Settings → Kiro Agent: Trusted Commands (global ou por workspace) os comandos de build/test do seu stack, com `*` no final pra aceitar argumentos (ex.: `"dotnet test *"`, `"git status *"`). Nunca confie largo em comandos destrutivos (`git push`, `git reset --hard`, `npx *`) nem em `check-gates.sh` (recebe `--test-cmd` arbitrário — aprovação manual aqui é intencional).
 
-Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`) — confira o campo `version`. `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central **comparando contra o que o manifesto anterior registra como instalado pelo time** — agente/skill próprio do projeto (nunca instalado por este installer) nunca é tocado, mesmo que não esteja no conjunto atual do central (regra de ouro da dualidade, ver README). Manifesto ausente/em formato legado → `--update` não poda nada por padrão (evita apagar algo às cegas); `--prune-unmanaged` converge o diretório real pro conjunto atual do central, à moda antiga — use só quando tiver certeza de que não há artefato próprio do projeto ali.
+Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`, `scripts`) — confira o campo `version`. `.kiro/.kiro-ai-team-paths` (`KIRO_ENGINE=<raiz real da engine>`) e `.kiro/scripts/kiro-paths.sh` existem em TODO escopo — é o que faz `.kiro/scripts/worktree.sh` e o `check-gates.sh` resolverem certo mesmo quando a engine mora em `$KIRO_HOME` (hybrid/global). `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central **comparando contra o que o manifesto anterior registra como instalado pelo time** — agente/skill próprio do projeto (nunca instalado por este installer) nunca é tocado, mesmo que não esteja no conjunto atual do central (regra de ouro da dualidade, ver README). Manifesto ausente/em formato legado → `--update` não poda nada por padrão (evita apagar algo às cegas); `--prune-unmanaged` converge o diretório real pro conjunto atual do central, à moda antiga — use só quando tiver certeza de que não há artefato próprio do projeto ali.
 
 ### Escopos de instalação
 
@@ -78,7 +78,7 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 ### Passo 3 — Execução (paralela, contextos separados)
 
 ```bash
-./kiro-ai-team/scripts/worktree.sh start PROJ-1234
+.kiro/scripts/worktree.sh start PROJ-1234
 ```
 
 - No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "prepare o worktree do PBI PROJ-1234" (`task-preflight`: confirma branch + build verde). O hook `preflight-branch` já avisa sozinho no início da sessão se a branch atual não bater com uma spec ativa.
@@ -92,7 +92,7 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
   - Sessão limpa 1 (aba nova): `reviewer-spec` → `review-spec` (diff × requirements).
   - Sessão limpa 2 (outra aba nova): `reviewer-code` → `review-code`.
 - > "orchestrator, merge-gate do PROJ-1234"
-  > Ele confere as 5 evidências **em disco** (G5 é bloqueante por padrão — sem log de regressão, reprova; escape explícito é `--skip-g5 "<motivo>"`), roda a regressão, mescla serializado, `worktree.sh finish`, e fecha no tracker de origem com `resolve-issue`.
+  > Ele confere as 5 evidências **em disco** (G5 é bloqueante por padrão — sem log de regressão, reprova; escape explícito é `--skip-g5 "<motivo>"`), roda a regressão, mescla serializado, `.kiro/scripts/worktree.sh finish`, e fecha no tracker de origem com `resolve-issue`.
 
 ### Seu papel humano (só 3 momentos)
 
@@ -220,7 +220,8 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 - **`review-spec` / `review-code`** — ver fichas dos `reviewer-*`.
 - **`merge-gate`** — checklist mecânico final:
   ```bash
-  bash .kiro/skills/merge-gate/scripts/check-gates.sh <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
+  ENGINE="$(bash .kiro/scripts/kiro-paths.sh)"   # resolve a raiz da engine — mesmo caminho no escopo project; aponta pra $KIRO_HOME em hybrid/global
+  bash "$ENGINE/skills/merge-gate/scripts/check-gates.sh" <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
   ```
   Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o HEAD atual de `pbi/<PBI>` — evidência aprovada num commit anterior não sobrevive a um commit novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
 - **`resolve-issue`** — fecha o ciclo no tracker de origem. Dono: `orchestrator`, automático ao fim do `merge-gate`.

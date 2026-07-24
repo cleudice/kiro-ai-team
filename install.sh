@@ -23,6 +23,11 @@
 #
 # O que vai para onde:
 #   engine  (agents/, skills/)                → project ou global, conforme escopo
+#   scripts/{worktree,kiro-paths}.sh          → SEMPRE no projeto também (.kiro/scripts/), mesmo em
+#                                                hybrid/global — caminho fixo citado em todo prompt/
+#                                                skill/hook; kiro-paths.sh resolve o resto (skills/
+#                                                hooks) via .kiro-ai-team-paths quando a engine mora
+#                                                em $KIRO_HOME (B1/B3)
 #   steering compartilhado + guidelines       → SEMPRE projeto (steering do Kiro é por workspace)
 #   steering do projeto (templates), docs/    → SEMPRE projeto
 #   mcp/ (fragmentos)                         → mesclar manualmente (projeto ou ~/.kiro/settings)
@@ -82,14 +87,15 @@ stack_guidelines() {
 }
 
 # manifesto JSON em $VERFILE — substitui o antigo arquivo de uma linha (versão em
-# texto puro); guarda também scope/stack/agents/skills instalados, pra --update
-# saber o que podar (A1) e lembrar --stack sem precisar repassar (A2). Migra
-# transparentemente o formato antigo na primeira atualização.
-# uso: write_manifest <path> <version> <scope> <stack|@keep@> <"agentes"|@keep@> <"skills"|@keep@>
+# texto puro); guarda também scope/stack/agents/skills/scripts instalados, pra
+# --update saber o que podar (A1), lembrar --stack sem precisar repassar (A2) e
+# --uninstall saber o que remover (inclusive scripts/*.sh — B1/I5, antes órfãos).
+# Migra transparentemente o formato antigo na primeira atualização.
+# uso: write_manifest <path> <version> <scope> <stack|@keep@> <"agentes"|@keep@> <"skills"|@keep@> <"scripts"|@keep@>
 write_manifest() {
-  python3 - "$1" "$2" "$3" "$4" "$5" "$6" << 'PY'
+  python3 - "$1" "$2" "$3" "$4" "$5" "$6" "$7" << 'PY'
 import json, sys, os
-path, ver, scope, stack, agents, skills = sys.argv[1:7]
+path, ver, scope, stack, agents, skills, scripts = sys.argv[1:8]
 data = {}
 if os.path.exists(path):
     try:
@@ -105,6 +111,8 @@ if agents != "@keep@":
     data["agents"] = agents.split()
 if skills != "@keep@":
     data["skills"] = skills.split()
+if scripts != "@keep@":
+    data["scripts"] = scripts.split()
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
     f.write("\n")
@@ -156,6 +164,24 @@ install_engine() {  # $1 = raiz .kiro de destino
     _x cp -f "$SRC"/hooks/scripts/*.sh "$K/hooks/scripts/"
   fi
 
+  # scripts/{worktree,kiro-paths}.sh (B1) — worktree.sh é dependência de carga
+  # (orchestrator/qa-blackbox citam "1 PBI = 1 worktree" no próprio prompt) e
+  # antes desta correção NUNCA era instalado em lugar nenhum; kiro-paths.sh é o
+  # resolvedor que faz o caminho fixo `.kiro/scripts/...` funcionar também em
+  # hybrid/global, onde a engine mora em $KIRO_HOME (B3). Sempre vão junto.
+  _x mkdir -p "$K/scripts"
+  _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
+  _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
+  local NEW_SCRIPTS=(worktree.sh kiro-paths.sh)
+  # auto-referência: se alguém rodar os scripts direto daqui (ex.: escopo global
+  # puro, sem camada de projeto por perto), kiro-paths.sh já resolve pra si mesmo
+  # sem este arquivo — mas gravá-lo deixa explícito e uniforme com install_project_layer.
+  if [ "$DRYRUN" != "1" ]; then
+    printf 'KIRO_ENGINE=%q\n' "$K" > "$K/.kiro-ai-team-paths"
+  else
+    echo "  (dry-run) gravar $K/.kiro-ai-team-paths → KIRO_ENGINE=$K"
+  fi
+
   # poda (A1, revisado B1): por padrão poda só o que o MANIFESTO ANTERIOR registra
   # como instalado pelo time — nunca o diretório inteiro. Agente/skill próprio do
   # projeto (ex.: analista de crashes do app X, ver README "a dualidade") não está
@@ -198,7 +224,7 @@ install_engine() {  # $1 = raiz .kiro de destino
     done
   fi
 
-  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "$STACK" "${NEW_AGENTS[*]}" "${NEW_SKILLS[*]}"
+  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "$STACK" "${NEW_AGENTS[*]}" "${NEW_SKILLS[*]}" "${NEW_SCRIPTS[*]}"
   _x rm -f "$K/$OLD_VERFILE"
   if [ -z "$STACK" ]; then
     echo "  ✔ engine v$VER → $K (agents + skills — todos os stacks; use --stack dotnet|webforms|flutter pra instalar só o necessário)"
@@ -207,8 +233,8 @@ install_engine() {  # $1 = raiz .kiro de destino
   fi
 }
 
-install_project_layer() {  # $1 = raiz do projeto
-  local P="$1" K="$1/.kiro"
+install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default: $1/.kiro, escopo project)
+  local P="$1" K="$1/.kiro" ENGINE="${2:-$1/.kiro}"
   _x mkdir -p "$K/steering/guidelines" "$K/hooks" "$K/settings" "$P"/docs/issues "$P"/docs/reviews "$P"/docs/context "$P"/docs/tests-spec
   # steering do time (sobrescreve na atualização)
   _x cp -f "$SRC"/steering-base/escalation-rules.md "$K/steering/"
@@ -222,6 +248,20 @@ install_project_layer() {  # $1 = raiz do projeto
     [ -f "$K/steering/$t.md" ] || _x cp "$SRC/steering-base/templates/$t.md" "$K/steering/$t.md"
   done
   [ -f "$P/AGENTS.md" ] || { _x cp "$SRC/steering-base/templates/AGENTS.md" "$P/AGENTS.md"; echo "  ✔ AGENTS.md → raiz do projeto (padrão aberto p/ Codex/Cursor/etc.)"; }
+  # camada fina de scripts (B1/B3): worktree.sh + kiro-paths.sh SEMPRE aqui, no
+  # caminho fixo .kiro/scripts/, mesmo em hybrid onde agents/skills reais moram
+  # em $KIRO_HOME — é o que faz `.kiro/scripts/worktree.sh start <PBI>` (citado
+  # em todo prompt/skill/hook) resolver igual nos 3 escopos. kiro-paths.sh lê o
+  # .kiro-ai-team-paths gravado logo abaixo pra apontar o resto (skills/hooks) pra
+  # onde a engine de fato está.
+  _x mkdir -p "$K/scripts"
+  _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
+  _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
+  if [ "$DRYRUN" != "1" ]; then
+    printf 'KIRO_ENGINE=%q\n' "$ENGINE" > "$K/.kiro-ai-team-paths"
+  else
+    echo "  (dry-run) gravar $K/.kiro-ai-team-paths → KIRO_ENGINE=$ENGINE"
+  fi
   # .gitignore: só os artefatos GERADOS por check-gates.sh (não a evidência em si,
   # que é registro versionado do PBI) — append idempotente, nunca sobrescreve um
   # .gitignore existente do projeto.
@@ -233,7 +273,7 @@ install_project_layer() {  # $1 = raiz do projeto
   else
     echo "  (dry-run) garantir entradas de .gate-ledger/.merge-count/*-g1-run.log em $P/.gitignore"
   fi
-  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "@keep@" "@keep@" "@keep@"
+  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "@keep@" "@keep@" "@keep@" "worktree.sh kiro-paths.sh"
   _x rm -f "$K/$OLD_VERFILE"
   echo "  ✔ camada do projeto → $P (steering + docs/)"
 }
@@ -241,11 +281,27 @@ install_project_layer() {  # $1 = raiz do projeto
 uninstall_engine() {  # $1 = raiz .kiro instalada (engine) — remove só o que o manifesto lista
   local K="$1"
   if [ ! -f "$K/$VERFILE" ]; then echo "  ✘ sem manifesto em $K/$VERFILE — nada a desinstalar (ou instalação em formato legado; remova manualmente)"; return; fi
-  local AG SK; AG="$(manifest_field "$K/$VERFILE" agents)"; SK="$(manifest_field "$K/$VERFILE" skills)"
+  local AG SK SC; AG="$(manifest_field "$K/$VERFILE" agents)"; SK="$(manifest_field "$K/$VERFILE" skills)"; SC="$(manifest_field "$K/$VERFILE" scripts)"
   for f in $AG; do if [ -e "$K/agents/$f" ]; then _x rm -f "$K/agents/$f"; echo "  ✂ removido: agents/$f"; fi; done
   for d in $SK; do if [ -e "$K/skills/$d" ]; then _x rm -rf "$K/skills/$d"; echo "  ✂ removido: skills/$d"; fi; done
+  for f in $SC; do if [ -e "$K/scripts/$f" ]; then _x rm -f "$K/scripts/$f"; echo "  ✂ removido: scripts/$f"; fi; done
+  _x rm -f "$K/.kiro-ai-team-paths"
   _x rm -f "$K/$VERFILE"
   echo "  ✔ engine desinstalada de $K — steering/docs/AGENTS.md do projeto preservados (não são do time, são conteúdo do projeto)"
+}
+
+# uninstall_project_scripts <raiz .kiro do projeto> — escopo hybrid: a engine
+# real some de $KIRO_HOME via uninstall_engine acima, mas a camada FINA de
+# scripts (worktree.sh/kiro-paths.sh + .kiro-ai-team-paths) instalada no
+# projeto por install_project_layer (B1/B3) fica órfã se não for limpa aqui.
+# Nunca toca steering/docs/AGENTS.md — mesma regra do uninstall_engine.
+uninstall_project_scripts() {
+  local K="$1"
+  [ -f "$K/$VERFILE" ] || return 0
+  local SC; SC="$(manifest_field "$K/$VERFILE" scripts)"
+  for f in $SC; do if [ -e "$K/scripts/$f" ]; then _x rm -f "$K/scripts/$f"; echo "  ✂ removido: scripts/$f"; fi; done
+  _x rm -f "$K/.kiro-ai-team-paths"
+  echo "  ✔ camada fina de scripts removida de $K (steering/docs preservados)"
 }
 
 warn_version_mismatch() {
@@ -269,7 +325,8 @@ if [ "$MODE" = "uninstall" ]; then
   case "$SCOPE" in
     project) uninstall_engine "$DEST/.kiro";;
     global)  uninstall_engine "$KIRO_HOME";;
-    hybrid)  uninstall_engine "$KIRO_HOME";;
+    hybrid)  uninstall_engine "$KIRO_HOME"
+             uninstall_project_scripts "$DEST/.kiro";;
   esac
   echo "✔ concluído"
   exit 0
@@ -278,7 +335,7 @@ fi
 case "$SCOPE" in
   project)
     install_engine "$DEST/.kiro"
-    install_project_layer "$DEST"
+    install_project_layer "$DEST" "$DEST/.kiro"
     ;;
   global)
     install_engine "$KIRO_HOME"
@@ -296,7 +353,7 @@ case "$SCOPE" in
     ;;
   hybrid)
     install_engine "$KIRO_HOME"
-    install_project_layer "$DEST"
+    install_project_layer "$DEST" "$KIRO_HOME"
     # sem engine local: evita duplicidade/conflito de nomes de agente
     warn_version_mismatch
     ;;

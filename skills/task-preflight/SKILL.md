@@ -11,7 +11,7 @@ O Kiro já executa `tasks.md` nativamente (botão "Start task" no painel da spec
 
 ## Pré-flight (antes de clicar no 1º "Start task")
 
-1. Confirmar que está no worktree/branch corretos: `git branch --show-current` deve ser `pbi/<ID>` (criado por `scripts/worktree.sh start <ID>`). Branch errada → parar e corrigir antes de tocar em código. O hook `preflight-branch` (`SessionStart`) já avisa isso sozinho no início da sessão se houver spec ativa numa branch que não é `pbi/*` — trate o aviso como o gatilho pra rodar este passo, não como substituto dele.
+1. Confirmar que está no worktree/branch corretos: `git branch --show-current` deve ser `pbi/<ID>` (criado por `.kiro/scripts/worktree.sh start <ID>`). Branch errada → parar e corrigir antes de tocar em código. O hook `preflight-branch` (`SessionStart`) já avisa isso sozinho no início da sessão se houver spec ativa numa branch que não é `pbi/*` — trate o aviso como o gatilho pra rodar este passo, não como substituto dele.
 2. Rodar o comando de build/teste do `tech.md` do projeto. Não está verde? Não é o PBI atual que deve resolver — escalar.
 3. Carregar guidelines do stack + `docs/context/` (eixos conventions/gotchas) se existirem.
 4. Confirmar que `.kiro/specs/<slug>/tasks.md` existe e está com os gates G1–G5 no final.

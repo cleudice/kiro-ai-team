@@ -61,7 +61,7 @@ if [ -z "$REPO" ]; then
     REPO="$WT_PATH"
     echo "  ℹ --repo não informado — usando worktree de $BRANCH: $REPO"
   elif git show-ref --verify --quiet "refs/heads/$BRANCH" 2>/dev/null; then
-    echo "✘ branch $BRANCH existe mas não tem worktree registrado (git worktree list) — rode 'scripts/worktree.sh start $PBI' ou passe --repo explicitamente. Nunca rodar os gates fora do worktree do PBI (o trabalho pode estar solto/errado)." >&2
+    echo "✘ branch $BRANCH existe mas não tem worktree registrado (git worktree list) — rode '.kiro/scripts/worktree.sh start $PBI' ou passe --repo explicitamente. Nunca rodar os gates fora do worktree do PBI (o trabalho pode estar solto/errado)." >&2
     exit 1
   else
     REPO="."

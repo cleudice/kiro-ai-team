@@ -28,6 +28,32 @@ for p in glob.glob('agents/*.json'):
             m = re.search(r'\.kiro/hooks/(scripts/\S+\.sh)', cmd)
             if m and not os.path.exists(os.path.join('hooks', m.group(1))):
                 fail.append(f"{p}: hook referencia {m.group(1)} que não existe em hooks/")
+# B1/B3 — todo caminho `.kiro/<algo>.sh` citado em agente/skill/hook/doc precisa
+# corresponder a um arquivo que install.sh de fato instala (agents/, skills/**,
+# hooks/scripts/, scripts/) — é este check que teria pego scripts/worktree.sh
+# nunca sendo instalado (B1 da terceira auditoria). Caminhos resolvidos em
+# runtime via kiro-paths.sh (variável $ENGINE, não literal ".kiro/...") não
+# entram nesta checagem — são cobertos pelos casos por escopo em test-install.sh.
+installed_sh = set()
+for pat in ('skills/**/*.sh', 'hooks/scripts/*.sh', 'scripts/*.sh'):
+    installed_sh.update(glob.glob(pat, recursive=True))
+sh_doc_sources = (glob.glob('agents/*.json') + glob.glob('agents/*.md') + glob.glob('hooks/*.json')
+                   + glob.glob('skills/*/SKILL.md')
+                   + [d for d in ('OPERACAO.md', 'README.md', 'steering-base/templates/AGENTS.md') if os.path.exists(d)])
+for p in sh_doc_sources:
+    s = open(p, encoding='utf-8').read()
+    for m in re.finditer(r'\.kiro/([A-Za-z0-9_./-]+\.sh)\b', s):
+        rel = m.group(1)
+        if rel not in installed_sh:
+            fail.append(f"{p}: cita .kiro/{rel}, mas install.sh não instala esse caminho (installed_sh não bate)")
+# M5 — skill://X citado em agents/*.json precisa corresponder a uma skill real
+# (hoje bate por sorte nos 15; isto vira reprovação mecânica se algum dia divergir).
+skill_names = {os.path.basename(os.path.dirname(p)) for p in glob.glob('skills/*/SKILL.md')}
+for p in glob.glob('agents/*.json'):
+    d = json.load(open(p))
+    for r in d.get('resources', []):
+        if r.startswith('skill://') and r[len('skill://'):] not in skill_names:
+            fail.append(f"{p}: resource {r} não corresponde a nenhuma pasta em skills/")
 for p in glob.glob('steering-base/**/*.md', recursive=True):
     s=open(p).read()
     if 'templates/' in p or '/global/' in p: continue

@@ -66,6 +66,17 @@ assert_exists "$K1/.kiro-ai-team-version"
 V1="$(cat "$K1/.kiro-ai-team-version" 2>/dev/null | tr -d '[:space:]')"
 [ -n "$V1" ] && pass "versão gravada: $V1" || fail "arquivo de versão vazio"
 
+# B1 — worktree.sh (e o resolvedor kiro-paths.sh) precisam ser instalados no
+# projeto — antes desta correção, scripts/worktree.sh nunca ia pra lugar nenhum,
+# apesar de todo prompt/skill citar ".kiro/scripts/worktree.sh".
+assert_exists "$K1/scripts/worktree.sh"
+assert_exists "$K1/scripts/kiro-paths.sh"
+[ -x "$K1/scripts/worktree.sh" ] || chmod +x "$K1/scripts/worktree.sh" 2>/dev/null
+RESOLVED1="$(bash "$K1/scripts/kiro-paths.sh")"
+[ "$RESOLVED1" = "$K1" ] && pass "kiro-paths.sh resolve a engine local no escopo project" \
+  || fail "kiro-paths.sh resolveu '$RESOLVED1', esperado '$K1'"
+N=$((N+1))
+
 # =========================================================================
 # 2) install sem --stack: todos os 3 devs presentes (multi = sem podar)
 # =========================================================================
@@ -146,6 +157,38 @@ KH="$TMP/kiro-home"; mkdir -p "$KH"
 bash "$INSTALL" --scope global --kiro-home "$KH" >/tmp/install-out-4.log 2>&1
 assert_exists "$KH/agents/orchestrator.json"
 assert_exists "$KH/steering/principios.md"
+# B1/B3 — escopo global puro também recebe scripts/ (uso standalone, sem camada
+# de projeto por perto) e um .kiro-ai-team-paths auto-referente.
+assert_exists "$KH/scripts/worktree.sh"
+assert_exists "$KH/scripts/kiro-paths.sh"
+assert_exists "$KH/.kiro-ai-team-paths"
+
+# =========================================================================
+# 5b) B3 — --scope hybrid: engine fica em KIRO_HOME, mas .kiro/scripts/ do
+#     projeto resolve pra lá via kiro-paths.sh + .kiro-ai-team-paths. Antes da
+#     correção, caminhos ".kiro/..." hardcoded (guard do qa-blackbox,
+#     check-gates.sh) quebravam silenciosamente nesse escopo.
+# =========================================================================
+KH2="$TMP/kiro-home-hybrid"; mkdir -p "$KH2"
+DH="$TMP/proj-hybrid"; mkdir -p "$DH"
+bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --stack dotnet >/tmp/install-out-5b.log 2>&1
+KDH="$DH/.kiro"
+assert_absent "$KDH/agents"                     # hybrid: sem engine local, evita conflito de nomes
+assert_exists "$KDH/scripts/worktree.sh"         # camada fina SEMPRE presente no projeto
+assert_exists "$KDH/scripts/kiro-paths.sh"
+assert_exists "$KDH/.kiro-ai-team-paths"
+assert_exists "$KH2/agents/orchestrator.json"    # engine de verdade mora em KIRO_HOME
+RESOLVED_HYBRID="$(bash "$KDH/scripts/kiro-paths.sh")"
+[ "$RESOLVED_HYBRID" = "$KH2" ] && pass "kiro-paths.sh (hybrid) resolve pra KIRO_HOME" \
+  || fail "kiro-paths.sh (hybrid) resolveu '$RESOLVED_HYBRID', esperado '$KH2'"
+N=$((N+1))
+
+# --uninstall no hybrid remove a camada fina do projeto E a engine do KIRO_HOME,
+# sem tocar steering/docs do projeto (mesma regra do escopo project)
+bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --uninstall >/tmp/install-out-5c.log 2>&1
+assert_absent "$KDH/scripts/worktree.sh"
+assert_absent "$KH2/agents/orchestrator.json"
+assert_exists "$KDH/steering/product.md"
 
 # =========================================================================
 # 6) --dry-run não escreve nada no disco
@@ -164,6 +207,10 @@ bash "$INSTALL" "$D6" --stack dotnet >/tmp/install-out-6.log 2>&1
 bash "$INSTALL" "$D6" --uninstall >/tmp/install-out-6b.log 2>&1
 assert_absent "$D6/.kiro/agents/orchestrator.json"
 assert_absent "$D6/.kiro/skills/merge-gate"
+# I5 — scripts/ (worktree.sh, kiro-paths.sh) também sai no uninstall; antes
+# desta correção ficavam órfãos (não registrados em manifesto nenhum).
+assert_absent "$D6/.kiro/scripts/worktree.sh"
+assert_absent "$D6/.kiro/scripts/kiro-paths.sh"
 assert_exists "$D6/.kiro/steering/product.md"
 assert_exists "$D6/AGENTS.md"
 

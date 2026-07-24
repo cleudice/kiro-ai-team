@@ -4,7 +4,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
-Sem mudanças pendentes desde o `[1.6.0]` abaixo.
+Sem mudanças pendentes desde o `[1.6.1]` abaixo.
+
+## [1.6.1] — 2026-07-24
+
+Terceira auditoria de ecossistema — corrige bloqueantes que sobreviveram às duas anteriores: um passo estrutural do fluxo (`worktree.sh`) que nunca chegava a ser instalado, um agente sem a ferramenta necessária pra executar a própria skill, e dois dos três escopos de instalação quebrando caminhos hardcoded silenciosamente.
+
+### Corrigido (bloqueantes)
+
+- `scripts/worktree.sh` — nunca era instalado em lugar nenhum (`install.sh` copiava `agents/`, `skills/`, `hooks/scripts/`, mas não `scripts/`), apesar de todo prompt de `orchestrator`/`qa-blackbox` e toda skill (`task-preflight`, `write-blackbox-tests`, `merge-gate`) mandarem rodar `scripts/worktree.sh start <PBI>`. É o passo mais estrutural do sistema (1 PBI = 1 worktree) e o único que faltava. `install_engine`/`install_project_layer` agora copiam `worktree.sh` para `.kiro/scripts/`; todos os caminhos citados em agente/skill/hook/doc passam a `.kiro/scripts/worktree.sh`.
+- `reviewer-spec` ganhou a tool `shell` — sem ela, o agente dono do gate G3 não conseguia rodar `git diff main...pbi/<ID>` (passo 1 da própria skill `review-spec`), o insumo básico da revisão de conformidade.
+- Escopos `global`/`hybrid` — caminhos `.kiro/...` hardcoded (guard `preToolUse` do `qa-blackbox`, invocação de `check-gates.sh` em `merge-gate/SKILL.md`/`OPERACAO.md`/`AGENTS.md`) assumiam que a engine estava sempre em `.kiro/` do projeto; em hybrid/global ela mora em `$KIRO_HOME`, e o guard falhava aberto silenciosamente. Novo resolvedor `scripts/kiro-paths.sh` — instalado no caminho fixo `.kiro/scripts/kiro-paths.sh` em TODO escopo — imprime a raiz real da engine (lida de `.kiro/.kiro-ai-team-paths`, gravado pelo installer); consumidores passam a resolver via `ENGINE="$(bash .kiro/scripts/kiro-paths.sh)"` em vez de caminho fixo.
+- Manifesto (`.kiro-ai-team-version`) ganha o campo `scripts` — resolve de quebra o I5 da auditoria anterior (`hooks/scripts/*.sh` não eram removidos no `--uninstall`; agora `scripts/` também é rastreado e removido corretamente, inclusive a camada fina do projeto no escopo hybrid via `uninstall_project_scripts`).
+
+### Adicionado (testes e verificação)
+
+- `tests/test-install.sh` — casos novos: `scripts/worktree.sh`/`kiro-paths.sh` instalados e resolvendo certo nos três escopos (`project`, `global`, `hybrid`); `--uninstall` limpa a camada fina do projeto em hybrid sem tocar steering/docs.
+- `selftest.sh` — novo check mecânico: todo caminho `.kiro/<algo>.sh` citado em agente/skill/hook/doc precisa corresponder a um arquivo que `install.sh` de fato instala (é o check que teria pego o `worktree.sh` nunca instalado antes desta correção); e todo `skill://X` referenciado em `agents/*.json` precisa existir em `skills/`.
 
 ## [1.6.0] — 2026-07-24
 

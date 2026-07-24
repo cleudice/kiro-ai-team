@@ -12,7 +12,7 @@ description: (Somente qa-blackbox) Escreve os testes de aceitação usando APENA
 
 ## Passos
 
-0. Pré-flight: confirmar worktree correto (`scripts/worktree.sh start <PBI>` já rodado; branch `pbi/<ID>`) — mesmo quando o design decidiu zero mudança em `src/` e todas as tasks são suas. Nunca escrever teste direto no working tree do repo principal.
+0. Pré-flight: confirmar worktree correto (`.kiro/scripts/worktree.sh start <PBI>` já rodado; branch `pbi/<ID>`) — mesmo quando o design decidiu zero mudança em `src/` e todas as tasks são suas. Nunca escrever teste direto no working tree do repo principal.
 1. Mapear 1 critério EARS → ≥1 teste. Tabela de rastreabilidade R#.# → teste.
 2. Escrever contra os contratos públicos do design (endpoint, interface, procedure) no framework de teste do repo.
 3. Incluir casos de erro e borda declarados nos critérios.
