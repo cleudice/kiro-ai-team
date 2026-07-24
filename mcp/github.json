@@ -1,15 +1,10 @@
 {
   "mcpServers": {
     "github": {
-      "comment": "Issues/PRs GitHub. Donos: orchestrator, triage-issue/resolve-issue. Servidor hospedado oficial (github/github-mcp-server) — o antigo @modelcontextprotocol/server-github está deprecado.",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.githubcopilot.com/mcp/",
-        "--header",
-        "Authorization: Bearer ${GITHUB_TOKEN}"
-      ],
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      },
       "disabled": false,
       "autoApprove": ["get_issue", "list_issues"]
     }

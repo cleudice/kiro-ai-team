@@ -10,6 +10,7 @@
         "type": "agent",
         "prompt": "Um novo brief chegou em docs/issues/. Como orchestrator: classifique o trilho (feature|manutenção) e proponha o próximo passo do workflow."
       },
+      "timeout": 60,
       "enabled": true
     }
   ]

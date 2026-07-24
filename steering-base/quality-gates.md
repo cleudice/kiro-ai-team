@@ -8,13 +8,13 @@ Autorrelato não conta. Só evidência sobrevivente aos gates.
 
 Um PBI só pode ser mesclado quando TODOS os checks abaixo estiverem registrados:
 
-| #   | Gate                          | Evidência exigida (caminho exato — `check-gates.sh` só reconhece estes)                                                                      | Quem produz             |
-| --- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 1   | Testes black-box verdes       | `docs/tests-spec/<slug>.md` (rastreabilidade) + suíte verde                                                                                  | qa-blackbox             |
-| 2   | Verify observado              | `docs/reviews/<PBI>-verify.md` — veredicto PASS/FAIL/BLOCKED por critério                                                                    | dev-* via verify-change |
-| 3   | Review de spec APROVADO       | `docs/reviews/<PBI>-spec.md`                                                                                                                 | reviewer-spec           |
-| 4   | Review de código APROVADO     | `docs/reviews/<PBI>-code.md`                                                                                                                 | reviewer-code           |
-| 5   | Regressão verde na integração | log com linha-âncora `G5: PASS` (via `check-gates.sh ... --g5-log <arquivo>`) — sem `--g5-log`, G5 é instrucional (não bloqueia o exit code) | merge-gate              |
+| #   | Gate                          | Evidência exigida (caminho exato — `check-gates.sh` só reconhece estes)                                                                                                                           | Quem produz             |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 1   | Testes black-box verdes       | `docs/tests-spec/<slug>.md` (rastreabilidade) + suíte verde                                                                                                                                       | qa-blackbox             |
+| 2   | Verify observado              | `docs/reviews/<PBI>-verify.md` — veredicto PASS/FAIL/BLOCKED por critério                                                                                                                         | dev-* via verify-change |
+| 3   | Review de spec APROVADO       | `docs/reviews/<PBI>-spec.md`                                                                                                                                                                      | reviewer-spec           |
+| 4   | Review de código APROVADO     | `docs/reviews/<PBI>-code.md`                                                                                                                                                                      | reviewer-code           |
+| 5   | Regressão verde na integração | log com linha-âncora `G5: PASS` (via `check-gates.sh ... --g5-log <arquivo>`) — **bloqueante por padrão**: sem `--g5-log`, o gate reprova; escape explícito e registrado é `--skip-g5 "<motivo>"` | merge-gate              |
 
 Regras adicionais:
 
@@ -24,3 +24,4 @@ Regras adicionais:
 - A cada **5 merges**, o auditor roda `audit-integration`.
 - **`tasks.md` marcado `[x]` ou um agente dizendo "aprovado"/"pronto para merge" não é evidência.** Antes de qualquer merge, rodar `check-gates.sh` de verdade e conferir o exit code — nomes de arquivo fora do padrão acima fazem o gate reprovar mecanicamente mesmo com o trabalho tecnicamente pronto.
 - **Mudança de configuração de build/ambiente (TargetFramework, versão de SDK, flag de compilação) para contornar um problema do ambiente de execução é uma ambiguidade de escopo, não uma decisão livre do agente** — escalar via `escalation-rules.md` antes de aplicar. Preferir a solução que não altera o que o projeto declara suportar (ex.: `DOTNET_ROLL_FORWARD` no comando de teste em vez de subir o `TargetFramework`).
+- **Mecanização é defesa em profundidade, não substituto do prompt.** `qa-blackbox` tem um hook `preToolUse` embutido (`agents/qa-blackbox.json`, script `hooks/scripts/qa-blackbox-guard.sh`) que tenta bloquear leitura de `src/`; o contrato exato de payload que o Kiro passa pra um hook por-agente não é documentado publicamente, então o script falha ABERTO (não bloqueia) quando não reconhece o formato — ele reforça a regra, não a garante sozinho. A fonte da verdade continua sendo o prompt do agente + a revisão adversarial (reviewer-code/reviewer-spec nunca leem a conversa dos devs).

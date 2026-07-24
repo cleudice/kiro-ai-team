@@ -10,6 +10,7 @@
         "type": "agent",
         "prompt": "Rode 'dart format' no arquivo alterado e 'flutter analyze'. Reporte apenas problemas."
       },
+      "timeout": 120,
       "enabled": true
     }
   ]

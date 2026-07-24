@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "preflight-branch",
+      "description": "Avisa no início da sessão se o diretório atual não é o worktree pbi/<ID> de um PBI em andamento — mecaniza o pré-flight que task-preflight hoje pede por texto",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "b=$(git branch --show-current 2>/dev/null); if [ -n \"$b\" ] && [ \"$b\" != \"${b#pbi/}\" ]; then echo \"worktree do PBI confirmado: branch $b\"; elif ls .kiro/specs/*/tasks.md >/dev/null 2>&1; then echo \"⚠ há specs com tasks.md em .kiro/specs/ mas a branch atual ('${b:-desconhecida}') não é pbi/<ID> — confirme se é o worktree certo antes de rodar 'Start task' (scripts/worktree.sh start <PBI>).\"; fi"
+      },
+      "timeout": 15,
+      "enabled": true
+    }
+  ]
+}

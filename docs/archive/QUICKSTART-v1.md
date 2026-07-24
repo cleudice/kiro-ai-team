@@ -28,7 +28,7 @@ Depois do install:
 6. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; o Kiro tem quirk conhecido de indexação (mesmo quirk documentado no [MIGRATION.md](MIGRATION.md) pra quem já tinha skills antigas). Confirme no painel "Agent Steering & Skills" que os 6-9 agentes e as skills aparecem antes do primeiro PBI.
 7. **(Recomendado) `kiroAgent.trustedCommands`** — sem isso, todo `dotnet test`/`flutter test`/`check-gates.sh` pede aprovação manual. Configure em Settings → Kiro Agent: Trusted Commands (global ou por workspace) os comandos de build/test do seu stack, com `*` no final pra aceitar argumentos (ex.: `"dotnet test *"`, `"git status *"`). Nunca confie largo em comandos destrutivos (`git push`, `git reset --hard`, `npx *`) nem em `check-gates.sh` (recebe `--test-cmd` arbitrário — aprovação manual aqui é intencional).
 
-Sanidade: `.kiro/.kiro-ai-team-version` deve mostrar a versão instalada.
+Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`) — confira o campo `version`. `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central.
 
 ### Escopos de instalação
 

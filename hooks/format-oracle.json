@@ -3,13 +3,14 @@
   "hooks": [
     {
       "name": "format-oracle",
-      "description": "Confere guidelines Oracle/PL-SQL ao salvar .sql",
+      "description": "Linter determinístico contra guidelines/oracle.md ao salvar .sql (M3 — antes disparava um agente inteiro por save)",
       "trigger": "PostFileSave",
       "matcher": ".*\\.sql$",
       "action": {
-        "type": "agent",
-        "prompt": "Confira o script SQL/PL-SQL alterado contra steering/guidelines/oracle.md: script de rollback presente, bind variables em vez de concatenação, tratamento de exceção explícito (sem WHEN OTHERS THEN NULL), e se altera objeto compartilhado, dependentes mapeados. Reporte apenas problemas."
+        "type": "command",
+        "command": "bash .kiro/hooks/scripts/check-oracle.sh"
       },
+      "timeout": 30,
       "enabled": true
     }
   ]

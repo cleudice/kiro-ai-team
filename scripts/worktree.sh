@@ -4,9 +4,11 @@
 #   worktree.sh finish <PBI-ID> [--force]  remove o worktree após merge aprovado
 set -euo pipefail
 CMD="${1:?start|finish}"; ID="${2:?id do PBI}"; FORCE="${3:-}"
-MAIN="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|origin/||' || echo main)"
-if [ -z "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" ]; then
+MAIN="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+MAIN="${MAIN#origin/}"
+if [ -z "$MAIN" ]; then
   echo "⚠ origin/HEAD não configurado — assumindo branch principal='main'. Se estiver errado: git remote set-head origin -a" >&2
+  MAIN=main
 fi
 ROOT="$(git rev-parse --show-toplevel)"; WT="$ROOT/../wt-$ID"
 case "$CMD" in

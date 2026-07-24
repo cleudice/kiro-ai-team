@@ -5,15 +5,10 @@
   "tools": [
     "read",
     "write",
-    "shell",
-    "grep",
-    "glob",
-    "skill"
+    "shell"
   ],
   "resources": [
     "skill://task-preflight",
-    "skill://verify-change",
-    "file://.kiro/steering/guidelines/flutter.md",
-    "file://.kiro/steering/escalation-rules.md"
+    "skill://verify-change"
   ]
 }
