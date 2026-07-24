@@ -4,7 +4,7 @@ set -uo pipefail; cd "$(dirname "$0")"; FAIL=0
 bad(){ echo "✘ $1"; FAIL=1; }; ok(){ echo "✔ $1"; }
 for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh; do
   [ -e "$f" ] || continue; bash -n "$f" && ok "bash: $f" || bad "sintaxe bash: $f"; done
-for f in agents/*.json mcp/*.json hooks/*.kiro.hook; do
+for f in agents/*.json mcp/*.json hooks/*.json; do
   python3 -c "import json;json.load(open('$f'))" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
 python3 - << 'PY' || FAIL=1
 import re,sys,glob,os

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "issue-intake",
+      "description": "Novo brief em docs/issues → orchestrator triagem",
+      "trigger": "PostFileCreate",
+      "matcher": "docs/issues/[^/]*\\.md$",
+      "action": {
+        "type": "agent",
+        "prompt": "Um novo brief chegou em docs/issues/. Como orchestrator: classifique o trilho (feature|manutenção) e proponha o próximo passo do workflow."
+      },
+      "enabled": true
+    }
+  ]
+}

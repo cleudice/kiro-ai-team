@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "format-dotnet",
+      "description": "Formata e compila incrementalmente ao salvar C#",
+      "trigger": "PostFileSave",
+      "matcher": ".*[^/]*\\.cs$",
+      "action": {
+        "type": "agent",
+        "prompt": "Rode 'dotnet format' no projeto do arquivo alterado e um build incremental. Reporte apenas erros."
+      },
+      "enabled": true
+    }
+  ]
+}

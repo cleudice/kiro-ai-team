@@ -14,5 +14,5 @@ artifacts:
     steering_templates: "product, tech, structure, retro-learnings (só se ausentes)"
     docs: "docs/{issues,reviews,context,tests-spec}"
   manual_merge:
-    hooks: "hooks/*.kiro.hook -> .kiro/hooks do projeto (opcionais)"
+    hooks: "hooks/*.json -> .kiro/hooks do projeto (opcionais)"
     mcp: "mcp/*.json -> .kiro/settings/mcp.json OU ~/.kiro/settings/mcp.json"
