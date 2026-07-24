@@ -48,12 +48,10 @@ stack_dev_agents() {
 }
 
 stack_guidelines() {
-  case "$STACK" in
-    dotnet) echo "dotnet.md";;
-    webforms) echo "webforms.md oracle.md";;
-    flutter) echo "flutter.md";;
-    multi|"") echo "dotnet.md webforms.md flutter.md oracle.md";;
-  esac
+  # reviewer-code/reviewer-spec são CORE_AGENTS instalados em todo stack e revisam
+  # qualquer diff do repo — por isso os 4 guideline files sempre vão juntos,
+  # independente do --stack (são .md pequenos; o custo de bloat é irrelevante).
+  echo "dotnet.md webforms.md flutter.md oracle.md"
 }
 
 install_engine() {  # $1 = raiz .kiro de destino

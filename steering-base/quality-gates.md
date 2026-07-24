@@ -8,13 +8,13 @@ Autorrelato não conta. Só evidência sobrevivente aos gates.
 
 Um PBI só pode ser mesclado quando TODOS os checks abaixo estiverem registrados:
 
-| #   | Gate                          | Evidência exigida (caminho exato — `check-gates.sh` só reconhece estes)   | Quem produz             |
-| --- | ----------------------------- | ------------------------------------------------------------------------- | ----------------------- |
-| 1   | Testes black-box verdes       | `docs/tests-spec/<slug>.md` (rastreabilidade) + suíte verde               | qa-blackbox             |
-| 2   | Verify observado              | `docs/reviews/<PBI>-verify.md` — veredicto PASS/FAIL/BLOCKED por critério | dev-* via verify-change |
-| 3   | Review de spec APROVADO       | `docs/reviews/<PBI>-spec.md`                                              | reviewer-spec           |
-| 4   | Review de código APROVADO     | `docs/reviews/<PBI>-code.md`                                              | reviewer-code           |
-| 5   | Regressão verde na integração | suíte do repo na branch alvo pós-merge simulado                           | merge-gate              |
+| #   | Gate                          | Evidência exigida (caminho exato — `check-gates.sh` só reconhece estes)                                                                      | Quem produz             |
+| --- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 1   | Testes black-box verdes       | `docs/tests-spec/<slug>.md` (rastreabilidade) + suíte verde                                                                                  | qa-blackbox             |
+| 2   | Verify observado              | `docs/reviews/<PBI>-verify.md` — veredicto PASS/FAIL/BLOCKED por critério                                                                    | dev-* via verify-change |
+| 3   | Review de spec APROVADO       | `docs/reviews/<PBI>-spec.md`                                                                                                                 | reviewer-spec           |
+| 4   | Review de código APROVADO     | `docs/reviews/<PBI>-code.md`                                                                                                                 | reviewer-code           |
+| 5   | Regressão verde na integração | log com linha-âncora `G5: PASS` (via `check-gates.sh ... --g5-log <arquivo>`) — sem `--g5-log`, G5 é instrucional (não bloqueia o exit code) | merge-gate              |
 
 Regras adicionais:
 

@@ -1,6 +1,17 @@
-{ "mcpServers": { "github": {
-  "comment": "Issues/PRs GitHub. Donos: orchestrator, triage-issue/resolve-issue.",
-  "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"],
-  "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" },
-  "disabled": false, "autoApprove": ["get_issue", "list_issues"]
-} } }
+{
+  "mcpServers": {
+    "github": {
+      "comment": "Issues/PRs GitHub. Donos: orchestrator, triage-issue/resolve-issue. Servidor hospedado oficial (github/github-mcp-server) — o antigo @modelcontextprotocol/server-github está deprecado.",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://api.githubcopilot.com/mcp/",
+        "--header",
+        "Authorization: Bearer ${GITHUB_TOKEN}"
+      ],
+      "disabled": false,
+      "autoApprove": ["get_issue", "list_issues"]
+    }
+  }
+}

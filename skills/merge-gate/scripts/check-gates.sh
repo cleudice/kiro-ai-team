@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # check-gates.sh — verificação DETERMINÍSTICA dos gates (exit 0 = pode mesclar)
 # uso:
-#   check-gates.sh <PBI-ID> <slug> [--test-cmd "cmd"] [--repo <dir>] [--track manutencao]
+#   check-gates.sh <PBI-ID> <slug> [--test-cmd "cmd"] [--repo <dir>] [--track manutencao] [--g5-log <arquivo>]
 #   check-gates.sh bump-counter [--repo <dir>]     # rodar APÓS o merge efetivo
+#
+# --g5-log <arquivo>: caminho de um log com a linha-âncora 'G5: PASS' (produzido pelo
+#   orchestrator após 'git merge --no-commit --no-ff pbi/<ID> && <test-cmd> ; git merge --abort').
+#   Sem essa flag, G5 permanece instrucional (não bloqueia o exit code).
 set -uo pipefail
-REPO="."; TESTCMD=""; TRACK="feature"
+REPO="."; TESTCMD=""; TRACK="feature"; G5LOG=""
 if [ "${1:-}" = "bump-counter" ]; then MODE=counter; shift; else MODE=check; PBI="${1:?PBI-ID}"; SLUG="${2:?slug}"; shift 2; fi
 while [ $# -gt 0 ]; do case "$1" in
   --repo) REPO="$2"; shift 2;; --test-cmd) TESTCMD="$2"; shift 2;; --track) TRACK="$2"; shift 2;;
+  --g5-log) G5LOG="$2"; shift 2;;
   *) echo "arg desconhecido: $1"; exit 2;; esac; done
 cd "$REPO"; R="docs/reviews"; FAIL=0
 ok(){ printf '  ✔ %s\n' "$1"; }; bad(){ printf '  ✘ %s\n' "$1"; FAIL=1; }
@@ -43,10 +48,15 @@ for g in spec:G3 code:G4; do f="$R/$PBI-${g%%:*}.md"; tag="${g##*:}"
   elif grep -qE '^Veredicto: *APROVADO' "$f"; then ok "$tag APROVADO ($f)"
   else bad "$tag sem linha-âncora 'Veredicto: APROVADO' em $f"; fi
 done
-# G5 — regressão pós-merge simulado (instrução; execução exige o merge --no-commit)
-if [ -n "$TESTCMD" ]; then
-  echo "  ℹ G5: na branch alvo rode 'git merge --no-commit --no-ff pbi/$PBI' e então: $TESTCMD ; git merge --abort"
-else echo "  ℹ G5: simule o merge e rode a suíte completa (comando do tech.md)"; fi
+# G5 — regressão pós-merge simulado
+if [ -n "$G5LOG" ]; then
+  if [ ! -f "$G5LOG" ]; then bad "G5 ausente: $G5LOG"
+  elif grep -qE '^G5: *FAIL' "$G5LOG"; then bad "G5 FAIL em $G5LOG"
+  elif grep -qE '^G5: *PASS' "$G5LOG"; then ok "G5 regressão verde ($G5LOG)"
+  else bad "G5 sem linha-âncora 'G5: PASS' em $G5LOG"; fi
+elif [ -n "$TESTCMD" ]; then
+  echo "  ℹ G5: na branch alvo rode 'git merge --no-commit --no-ff pbi/$PBI' e então: $TESTCMD ; git merge --abort — registre 'G5: PASS'/'G5: FAIL' num log e repasse com --g5-log pra virar bloqueante"
+else echo "  ℹ G5: simule o merge e rode a suíte completa (comando do tech.md) — registre 'G5: PASS'/'G5: FAIL' num log e repasse com --g5-log pra virar bloqueante"; fi
 
 [ $FAIL -eq 0 ] && { echo "RESULTADO: GATES OK — autorizado a mesclar (após G5 verde)"; exit 0; } \
                 || { echo "RESULTADO: GATES REPROVADOS — devolver ao papel dono do gate"; exit 1; }

@@ -5,10 +5,10 @@
       "name": "format-dotnet",
       "description": "Formata e compila incrementalmente ao salvar C#",
       "trigger": "PostFileSave",
-      "matcher": ".*[^/]*\\.cs$",
+      "matcher": ".*\\.cs$",
       "action": {
         "type": "agent",
-        "prompt": "Rode 'dotnet format' no projeto do arquivo alterado e um build incremental. Reporte apenas erros."
+        "prompt": "Rode 'dotnet format' no projeto do arquivo alterado e um build incremental. Se o projeto for legado (.aspx.cs / non-SDK-style, sem <Project Sdk=...> no .csproj), pule o 'dotnet format' e faça só o build incremental. Reporte apenas erros."
       },
       "enabled": true
     }

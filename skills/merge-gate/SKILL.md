@@ -12,7 +12,7 @@ description: Checklist final mecânico do PBI — executa scripts/check-gates.sh
    O script decide G1–G4 deterministicamente (exit 0/1). **Não interprete além do script**: sem evidência em disco = reprovado.
 3. Exit 1 → devolver ao papel dono do gate reprovado com a saída do script; registrar em `docs/reviews/<PBI>-gate.md`. FIM.
 4. Exit 0 → antes do G5, confirmar que o trabalho está no branch `pbi/<ID>` (worktree correto: `git worktree list`/`git branch`) — se o diff estiver solto direto na branch alvo (sem branch/worktree do PBI), é reprovação de processo: mover o trabalho para `pbi/<ID>` (branch + worktree) antes de prosseguir. Nunca simular merge a partir do estado solto.
-5. G5: na branch alvo, `git merge --no-commit --no-ff pbi/<PBI>` + suíte completa. Verde → efetivar o merge (serializado — um PBI por vez), `scripts/worktree.sh finish <PBI>`; vermelho → `git merge --abort` e devolver ao dev.
+5. G5: na branch alvo, `git merge --no-commit --no-ff pbi/<PBI>` + suíte completa; `git merge --abort` em seguida (nunca deixar o merge não-commitado pendente). Registre o resultado num log com a linha-âncora `G5: PASS` ou `G5: FAIL` e revalide com `check-gates.sh <PBI> <slug> --g5-log <arquivo>` (torna G5 bloqueante por exit code, igual G1–G4). Verde → efetivar o merge de fato (serializado — um PBI por vez), `scripts/worktree.sh finish <PBI>`; vermelho → devolver ao dev.
 6. Após o merge efetivo: `check-gates.sh bump-counter` (agenda audit-integration a cada 5) e acionar resolve-issue.
 
 ## Saída — docs/reviews/<PBI>-gate.md (só quando reprovado — passo 3)
