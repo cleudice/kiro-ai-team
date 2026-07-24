@@ -15,6 +15,12 @@
 #   G5 é BLOQUEANTE por padrão: sem --g5-log (e sem --skip-g5), o exit code reprova.
 # --skip-g5 "<motivo>": escape explícito e registrado — grava o motivo em
 #   docs/reviews/<PBI>-gate.md e libera o exit code sem regressão de integração.
+#
+# Vínculo evidência↔commit (B2): G2/G3/G4 e o log de G5 exigem uma linha-âncora
+# 'Commit: <sha>' que precisa ser (prefixo de) o HEAD atual da branch pbi/<PBI-ID>.
+# Sem isso, aprovar em um commit e commitar mais código depois no mesmo PBI passava
+# no gate sem que nada tivesse revisado o código novo — a evidência era atemporal.
+# Sem branch pbi/<PBI-ID> resolvível (uso manual/exemplo), a checagem é pulada.
 set -uo pipefail
 REPO=""; TESTCMD=""; TRACK="feature"; G5LOG=""; SKIPG5=""
 if [ "${1:-}" = "bump-counter" ]; then MODE=counter; shift; else MODE=check; PBI="${1:?PBI-ID}"; SLUG="${2:?slug}"; shift 2; fi
@@ -26,6 +32,14 @@ FAIL=0
 ok(){ printf '  ✔ %s\n' "$1"; }; bad(){ printf '  ✘ %s\n' "$1"; FAIL=1; }
 
 if [ "$MODE" = "counter" ]; then
+  # I4: sem --repo, resolve o REPO PRINCIPAL (não o cwd) — bump-counter roda
+  # depois do merge efetivo, tipicamente ainda de dentro do worktree do PBI que
+  # 'worktree.sh finish' está prestes a apagar; gravar o contador lá o perderia.
+  # 'git worktree list --porcelain' lista o repo principal como primeiro bloco.
+  if [ -z "$REPO" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    REPO="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+    [ -n "$REPO" ] && echo "  ℹ --repo não informado — usando repo principal: $REPO"
+  fi
   cd "${REPO:-.}"; R="docs/reviews"
   mkdir -p "$R"; C=$(( $(cat "$R/.merge-count" 2>/dev/null || echo 0) + 1 )); echo "$C" > "$R/.merge-count"
   echo "merges desde a última auditoria: $C"
@@ -56,6 +70,39 @@ if [ -z "$REPO" ]; then
 fi
 cd "$REPO"; R="docs/reviews"
 
+# ---- SHA da branch pbi/<PBI-ID>, pra amarrar evidência a commit (B2) -----------
+# SHA usado na comparação é o commit de CÓDIGO mais recente na branch, não o HEAD
+# literal: um commit que só toca docs/reviews/** ou docs/tests-spec/** (a própria
+# evidência, ou o log de G5, sendo commitados DEPOIS da revisão — necessário pra
+# 'worktree.sh finish' aceitar remover o worktree, ver quality-gates.md) não conta
+# como "código novo" e não invalida o vínculo. Só um commit que toca algo FORA
+# desses dois caminhos avança o SHA de referência.
+BRANCH_SHA="$(git rev-parse --verify -q "refs/heads/pbi/$PBI" 2>/dev/null || true)"
+if [ -n "$BRANCH_SHA" ]; then
+  SHA="$(git log -1 --format=%H "$BRANCH_SHA" -- . ':!docs/reviews' ':!docs/tests-spec' 2>/dev/null || true)"
+  [ -z "$SHA" ] && SHA="$BRANCH_SHA"
+else
+  SHA=""
+  echo "  ℹ branch pbi/$PBI não resolvida — checagem de vínculo evidência↔commit (linha 'Commit: <sha>') pulada (uso manual/exemplo)"
+fi
+# assert_commit <arquivo> <label> — exige 'Commit: <sha>' cujo valor seja prefixo
+# do último commit de CÓDIGO em pbi/<PBI-ID> ($SHA acima). Sem $SHA (checagem
+# pulada acima), sempre passa.
+assert_commit() {
+  local f="$1" label="$2" line commit
+  [ -z "$SHA" ] && return 0
+  line="$(grep -m1 -E '^Commit: *[0-9a-fA-F]{7,40}' "$f" 2>/dev/null || true)"
+  if [ -z "$line" ]; then
+    bad "$label sem linha-âncora 'Commit: <sha>' em $f — evidência não amarrada ao commit revisado"
+    return 1
+  fi
+  commit="$(printf '%s' "$line" | grep -oE '[0-9a-fA-F]{7,40}')"
+  case "$SHA" in
+    "$commit"*) return 0;;
+    *) bad "$label: evidência gravada em commit $commit, mas pbi/$PBI está em $SHA — refazer $label sobre o commit atual"; return 1;;
+  esac
+}
+
 # M5 — tech.md sem comando de teste preenchido (placeholder do template não editado)
 # chega aqui como --test-cmd vazio ou literalmente contendo "..." — falha cedo e
 # claro em vez de deixar G1b/G5 fracassarem de um jeito confuso mais adiante.
@@ -80,24 +127,27 @@ else bad "G1 sem evidência: docs/tests-spec/$SLUG.md ausente"; fi
 V="$R/$PBI-verify.md"
 if [ ! -f "$V" ]; then bad "G2 ausente: $V"
 else
-  CRIT_LINES="$(grep -cE '^R[0-9]+(\.[0-9]+)?[[:space:]]*[-—][[:space:]]*(PASS|FAIL|BLOCKED)\b' "$V" 2>/dev/null || true)"
-  BAD_LINES="$(grep -cE '^R[0-9]+(\.[0-9]+)?[[:space:]]*[-—][[:space:]]*(FAIL|BLOCKED)\b' "$V" 2>/dev/null || true)"
+  CRIT_LINES="$(grep -cE '^R[0-9]+(\.[0-9]+)?[[:space:]]*[-–—][[:space:]]*(PASS|FAIL|BLOCKED)\b' "$V" 2>/dev/null || true)"
+  BAD_LINES="$(grep -cE '^R[0-9]+(\.[0-9]+)?[[:space:]]*[-–—][[:space:]]*(FAIL|BLOCKED)\b' "$V" 2>/dev/null || true)"
   if [ "${CRIT_LINES:-0}" -eq 0 ]; then bad "G2 sem linha de critério reconhecida (formato: 'R#.# - PASS|FAIL|BLOCKED - evidência') em $V"
   elif [ "${BAD_LINES:-0}" -gt 0 ]; then bad "G2 contém FAIL/BLOCKED em linha de critério de $V"
-  else ok "G2 verify: $CRIT_LINES critério(s), todos PASS"; G2S=OK; fi
+  elif ! assert_commit "$V" "G2"; then :
+  else ok "G2 verify: $CRIT_LINES critério(s), todos PASS (commit ok)"; G2S=OK; fi
 fi
 # G3/G4 — reviews (exige a linha-âncora "Veredicto: APROVADO|REPROVADO" — não vasculha o corpo do texto)
 for g in spec:G3 code:G4; do f="$R/$PBI-${g%%:*}.md"; tag="${g##*:}"
   if [ ! -f "$f" ]; then bad "$tag ausente: $f"
   elif grep -qE '^Veredicto: *REPROVADO' "$f"; then bad "$tag REPROVADO em $f"
-  elif grep -qE '^Veredicto: *APROVADO' "$f"; then ok "$tag APROVADO ($f)"; [ "$tag" = G3 ] && G3S=OK || G4S=OK
+  elif grep -qE '^Veredicto: *APROVADO' "$f"; then
+    if assert_commit "$f" "$tag"; then ok "$tag APROVADO ($f, commit ok)"; [ "$tag" = G3 ] && G3S=OK || G4S=OK; fi
   else bad "$tag sem linha-âncora 'Veredicto: APROVADO' em $f"; fi
 done
 # G5 — regressão pós-merge simulado (bloqueante por padrão — B5)
 if [ -n "$G5LOG" ]; then
   if [ ! -f "$G5LOG" ]; then bad "G5 ausente: $G5LOG"
   elif grep -qE '^G5: *FAIL' "$G5LOG"; then bad "G5 FAIL em $G5LOG"
-  elif grep -qE '^G5: *PASS' "$G5LOG"; then ok "G5 regressão verde ($G5LOG)"; G5S=OK
+  elif grep -qE '^G5: *PASS' "$G5LOG"; then
+    if assert_commit "$G5LOG" "G5"; then ok "G5 regressão verde ($G5LOG, commit ok)"; G5S=OK; fi
   else bad "G5 sem linha-âncora 'G5: PASS' em $G5LOG"; fi
 elif [ -n "$SKIPG5" ]; then
   ok "G5 dispensado explicitamente — motivo: $SKIPG5"; G5S="SKIP"

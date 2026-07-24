@@ -28,4 +28,10 @@ simula a suíte (sempre verde) — num PBI real seria o comando de `tech.md`.
 `--skip-g5` existe porque este diretório não é um worktree de verdade; num PBI
 real, G5 exige `--g5-log` com merge simulado de fato (ver `skills/merge-gate/SKILL.md`).
 
+Este fixture não vive numa branch `pbi/PBI-EXEMPLO` real — por isso a checagem
+de vínculo evidência↔commit (`Commit: <sha>`, B2) fica pulada aqui e a evidência
+não precisa da linha `Commit:`. Num PBI real, `docs/reviews/<PBI>-{verify,spec,code}.md`
+e o log de G5 exigem a linha, batendo com o HEAD atual de `pbi/<ID>`, ou o gate
+correspondente reprova.
+
 Pra ver um gate reprovando, apague `docs/reviews/PBI-EXEMPLO-code.md` e rode de novo.

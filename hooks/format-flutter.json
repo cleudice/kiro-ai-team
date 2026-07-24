@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "format-flutter",
-      "description": "dart format + flutter analyze ao salvar Dart",
+      "description": "dart format + flutter analyze ao salvar Dart, determinístico (I5 — antes disparava um agente inteiro por save)",
       "trigger": "PostFileSave",
       "matcher": ".*\\.dart$",
       "action": {
-        "type": "agent",
-        "prompt": "Rode 'dart format' no arquivo alterado e 'flutter analyze'. Reporte apenas problemas."
+        "type": "command",
+        "command": "bash .kiro/hooks/scripts/format-flutter.sh"
       },
       "timeout": 120,
       "enabled": true

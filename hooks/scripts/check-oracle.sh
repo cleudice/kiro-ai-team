@@ -24,8 +24,15 @@ check_one() {
     ls "$dir/${base}"*rollback* >/dev/null 2>&1 || ls "$dir"/rollback*"${base}"* >/dev/null 2>&1 || \
       warn "$f: parece DDL/alteração de schema sem script de rollback ao lado (convenção: <nome>.rollback.sql) — confirme se existe em outro caminho"
   fi
-  grep -qE "\\|\\|.*'" "$f" && \
-    warn "$f: concatenação de string com '||' perto de aspas — confira se não é SQL dinâmico sem bind variable"
+  # I7: restrito a arquivos que já denunciam SQL DINÂMICO (EXECUTE IMMEDIATE /
+  # cursor aberto por string / DBMS_SQL) E têm uma linha de fato concatenando
+  # '||' com aspa (em qualquer ordem: `'literal' || var` ou `var || 'literal'`)
+  # — a versão anterior disparava em QUALQUER '||' perto de aspas, o que é falso
+  # positivo garantido (concatenação de string pura é rotina em PL/SQL comum).
+  if grep -qiE "(EXECUTE[[:space:]]+IMMEDIATE|OPEN[[:space:]].*[[:space:]]FOR|DBMS_SQL)" "$f" 2>/dev/null \
+     && grep -E "\\|\\|" "$f" 2>/dev/null | grep -qE "'"; then
+    warn "$f: SQL dinâmico (EXECUTE IMMEDIATE/OPEN...FOR/DBMS_SQL) com concatenação '||' e aspa — confira bind variable em vez de string concatenada"
+  fi
 }
 
 if [ -n "${1:-}" ] && [ -f "${1:-}" ]; then

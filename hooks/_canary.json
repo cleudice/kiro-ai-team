@@ -1,0 +1,51 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "_canary-postfilesave",
+      "description": "Canário de verificação (hooks/VERIFY.md) — NÃO instalar em projeto real. Grava .fired-PostFileSave ao salvar qualquer arquivo.",
+      "trigger": "PostFileSave",
+      "matcher": ".*",
+      "action": {
+        "type": "command",
+        "command": "date -u +%Y-%m-%dT%H:%M:%SZ > .kiro/hooks/.fired-PostFileSave"
+      },
+      "timeout": 15,
+      "enabled": true
+    },
+    {
+      "name": "_canary-postfilecreate",
+      "description": "Canário de verificação (hooks/VERIFY.md) — NÃO instalar em projeto real. Grava .fired-PostFileCreate ao criar qualquer arquivo.",
+      "trigger": "PostFileCreate",
+      "matcher": ".*",
+      "action": {
+        "type": "command",
+        "command": "date -u +%Y-%m-%dT%H:%M:%SZ > .kiro/hooks/.fired-PostFileCreate"
+      },
+      "timeout": 15,
+      "enabled": true
+    },
+    {
+      "name": "_canary-sessionstart",
+      "description": "Canário de verificação (hooks/VERIFY.md) — NÃO instalar em projeto real. Grava .fired-SessionStart no início de qualquer sessão.",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "date -u +%Y-%m-%dT%H:%M:%SZ > .kiro/hooks/.fired-SessionStart"
+      },
+      "timeout": 15,
+      "enabled": true
+    },
+    {
+      "name": "_canary-posttaskexec",
+      "description": "Canário de verificação (hooks/VERIFY.md) — NÃO instalar em projeto real. Grava .fired-PostTaskExec após qualquer task marcada [x].",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "command",
+        "command": "date -u +%Y-%m-%dT%H:%M:%SZ > .kiro/hooks/.fired-PostTaskExec"
+      },
+      "timeout": 15,
+      "enabled": true
+    }
+  ]
+}

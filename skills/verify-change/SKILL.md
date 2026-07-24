@@ -14,7 +14,9 @@ description: Verifica que a mudança FUNCIONA exercitando comportamento real (HT
 
 ## Saída — docs/reviews/<PBI>-verify.md
 
-Por critério, **uma linha começando exatamente** `R<n>.<n> - PASS - ...`, `R<n>.<n> - FAIL - ...` ou `R<n>.<n> - BLOCKED - ...` (hífen ou travessão, nunca as três palavras juntas) — é a âncora que `check-gates.sh` procura (G2), leitura mecânica igual a G3/G4. Depois do veredicto, a evidência: `R1.1 - PASS - evidência: <captura/trecho>`.
+Primeira linha: `Commit: <sha do HEAD atual de pbi/<PBI-ID>>` (`git rev-parse HEAD` no worktree) — é a âncora que `check-gates.sh` usa (B2) pra confirmar que esta evidência foi observada NO commit que vai ser mesclado, não num commit anterior. Código novo depois desta linha invalida o gate; rode `verify-change` de novo.
+
+Depois, por critério, **uma linha começando exatamente** `R<n>.<n> - PASS - ...`, `R<n>.<n> - FAIL - ...` ou `R<n>.<n> - BLOCKED - ...` (hífen ou travessão, nunca as três palavras juntas) — é a âncora que `check-gates.sh` procura (G2), leitura mecânica igual a G3/G4. Depois do veredicto, a evidência: `R1.1 - PASS - evidência: <captura/trecho>`.
 Nunca escrever `PASS`/`FAIL`/`BLOCKED` numa frase solta fora dessas linhas (ex.: no meio de um log colado) sem que a linha comece com `R<n>.<n>` — isso quebraria a leitura mecânica do gate. Cole evidência bruta (log completo, stdout) **depois** da linha do critério, nunca antes nem misturada a ela.
 
 ## Regras

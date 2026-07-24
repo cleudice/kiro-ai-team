@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "format-dotnet",
-      "description": "Formata e compila incrementalmente ao salvar C#",
+      "description": "dotnet format + build incremental ao salvar C#, determinístico (I5 — antes disparava um agente inteiro por save)",
       "trigger": "PostFileSave",
       "matcher": ".*\\.cs$",
       "action": {
-        "type": "agent",
-        "prompt": "Rode 'dotnet format' no projeto do arquivo alterado e um build incremental. Se o projeto for legado (.aspx.cs / non-SDK-style, sem <Project Sdk=...> no .csproj), pule o 'dotnet format' e faça só o build incremental. Reporte apenas erros."
+        "type": "command",
+        "command": "bash .kiro/hooks/scripts/format-dotnet.sh"
       },
       "timeout": 120,
       "enabled": true

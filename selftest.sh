@@ -2,7 +2,7 @@
 # selftest do kiro-ai-team — os gates aplicados ao próprio repo. exit 0 = íntegro.
 set -uo pipefail; cd "$(dirname "$0")"; FAIL=0
 bad(){ echo "✘ $1"; FAIL=1; }; ok(){ echo "✔ $1"; }
-for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh hooks/scripts/*.sh; do
+for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh hooks/scripts/*.sh tests/*.sh; do
   [ -e "$f" ] || continue; bash -n "$f" && ok "bash: $f" || bad "sintaxe bash: $f"; done
 for f in agents/*.json mcp/*.json hooks/*.json; do
   python3 -c "import json;json.load(open('$f'))" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
@@ -46,10 +46,38 @@ for p in glob.glob('agents/*.json'):
 for p in glob.glob('skills/*/SKILL.md'):
     name = p.split('/')[1]
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: skill '{name}' não referenciada")
+# hooks/*.json e mcp/*.json também precisam aparecer referenciados em algum doc
+# operacional — mesmo raciocínio anti-drift acima (M4), agora cobrindo o que
+# ficou de fora na primeira rodada (B3 da segunda auditoria).
+mcp_readme = open('mcp/README.md').read() if os.path.exists('mcp/README.md') else ''
+for p in sorted(glob.glob('hooks/*.json')):
+    base = os.path.basename(p)
+    if base.startswith('_'): continue  # _canary.json é instrumentação de VERIFY.md, não hook de produto
+    name = base[:-len('.json')]
+    if f"`{name}`" not in op: fail.append(f"OPERACAO.md: hook '{name}' não referenciado")
+for p in sorted(glob.glob('mcp/*.json')):
+    base = os.path.basename(p)
+    if base not in mcp_readme: fail.append(f"mcp/README.md: fragmento '{base}' não referenciado")
+# VERSION bate com o topo VERSIONADO do CHANGELOG (ignora [Unreleased]) — deriva
+# duas vezes é como a doc contradisse o código antes (ver OPERACAO.md intro).
+if os.path.exists('VERSION') and os.path.exists('CHANGELOG.md'):
+    ver = open('VERSION').read().strip()
+    chg = open('CHANGELOG.md').read()
+    m = re.search(r'^## \[(\d+\.\d+\.\d+)\]', chg, re.M)
+    if m and m.group(1) != ver:
+        fail.append(f"VERSION ({ver}) != topo versionado do CHANGELOG.md ({m.group(1)})")
+# docs/archive/ só deve reter o que tem valor de AÇÃO pra quem migra (MIGRATION-v1.md)
+# — manter os outros reintroduz o risco que causou a doc contradizer o código
+# (3 documentos derivando de forma independente, ver OPERACAO.md intro).
+for p in glob.glob('docs/archive/*'):
+    base = os.path.basename(p)
+    if base != 'MIGRATION-v1.md':
+        fail.append(f"docs/archive/{base}: só MIGRATION-v1.md deveria sobrar em docs/archive/ (risco de doc derivando em paralelo)")
 print('\n'.join('✘ '+f for f in fail) if fail else '✔ frontmatters, nomes, limites e links OK')
 sys.exit(1 if fail else 0)
 PY
 bash scripts/gen-agent-md.sh --check && ok "agents/*.md em sincronia com agents/*.json" || bad "agents/*.md fora de sincronia — rode scripts/gen-agent-md.sh"
 bash tests/test-check-gates.sh || bad "tests/test-check-gates.sh reprovou"
 bash tests/test-install.sh || bad "tests/test-install.sh reprovou"
+bash tests/test-worktree.sh || bad "tests/test-worktree.sh reprovou"
 [ $FAIL -eq 0 ] && echo "SELFTEST OK" || { echo "SELFTEST REPROVADO"; exit 1; }

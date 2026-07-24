@@ -32,11 +32,14 @@ mk_base_repo() {
 
 green_gates() {
   # popula docs/reviews e docs/tests-spec com evidência 100% verde para PBI/slug no cwd
-  local pbi="$1" slug="$2"
+  # inclui 'Commit: <sha-do-HEAD-atual>' (B2) — quando a branch pbi/<ID> existir de
+  # verdade e resolver pra este mesmo commit, o vínculo evidência↔commit bate.
+  local pbi="$1" slug="$2" sha
+  sha="$(git rev-parse HEAD 2>/dev/null || true)"
   echo "# tests spec" > "docs/tests-spec/$slug.md"
-  printf 'R1.1 - PASS - ok\nR1.2 - PASS - ok\n' > "docs/reviews/$pbi-verify.md"
-  printf 'Veredicto: APROVADO\n' > "docs/reviews/$pbi-spec.md"
-  printf 'Veredicto: APROVADO\n' > "docs/reviews/$pbi-code.md"
+  { printf 'R1.1 - PASS - ok\nR1.2 - PASS - ok\n'; [ -n "$sha" ] && printf 'Commit: %s\n' "$sha"; } > "docs/reviews/$pbi-verify.md"
+  { printf 'Veredicto: APROVADO\n'; [ -n "$sha" ] && printf 'Commit: %s\n' "$sha"; } > "docs/reviews/$pbi-spec.md"
+  { printf 'Veredicto: APROVADO\n'; [ -n "$sha" ] && printf 'Commit: %s\n' "$sha"; } > "docs/reviews/$pbi-code.md"
 }
 
 TMP="$(mktemp -d)"
@@ -150,7 +153,8 @@ WT="$TMP/wt-PBI-20"
 git -C "$D" worktree add -q -b pbi/PBI-20 "$WT" main >/dev/null 2>&1
 mkdir -p "$WT/docs/reviews" "$WT/docs/tests-spec"
 ( cd "$WT" && green_gates PBI-20 slug-20 )
-printf 'G5: PASS\n' > "$TMP/g5-20.log"
+SHA20="$(git -C "$D" rev-parse pbi/PBI-20)"
+printf 'G5: PASS\nCommit: %s\n' "$SHA20" > "$TMP/g5-20.log"
 # roda check-gates de dentro do repo principal, SEM --repo: deve achar o worktree do PBI
 expect_exit 0 "sem --repo: resolve worktree de pbi/PBI-20 automaticamente -> exit 0" -- \
   bash -c "cd '$D' && bash '$SCRIPT' PBI-20 slug-20 --test-cmd true --g5-log '$TMP/g5-20.log'"
@@ -185,6 +189,20 @@ expect_exit 0 "bump-counter -> exit 0" -- bash "$SCRIPT" bump-counter --repo "$D
 [ "$(cat "$D/docs/reviews/.merge-count")" = "1" ] && pass "bump-counter grava contador" || fail "bump-counter não gravou contador"
 N=$((N+1))
 
+# I4 — bump-counter SEM --repo, rodado de dentro do WORKTREE de um PBI, grava o
+# contador no repo PRINCIPAL (não no worktree, que 'worktree.sh finish' apagaria)
+D="$TMP/counter-wt-main"; mk_base_repo "$D"
+WTC="$TMP/wt-PBI-counter"
+git -C "$D" worktree add -q -b pbi/PBI-counter "$WTC" main >/dev/null 2>&1
+expect_exit 0 "bump-counter sem --repo, de dentro do worktree -> exit 0" -- \
+  bash -c "cd '$WTC' && bash '$SCRIPT' bump-counter"
+[ -f "$D/docs/reviews/.merge-count" ] && pass "bump-counter gravou contador no repo PRINCIPAL, não no worktree" \
+  || fail "bump-counter não gravou contador no repo principal"
+N=$((N+1))
+[ ! -f "$WTC/docs/reviews/.merge-count" ] && pass "bump-counter NÃO gravou contador no worktree" \
+  || fail "bump-counter gravou contador no worktree por engano"
+N=$((N+1))
+
 # =========================================================================
 # 6) M5 — --test-cmd placeholder de tech.md não preenchido reprova cedo e claro
 # =========================================================================
@@ -207,6 +225,51 @@ else
   fail "ledger não registrou PBI-25"
 fi
 N=$((N+1))
+
+# =========================================================================
+# 8) B2 — evidência de gate amarrada ao commit revisado (linha 'Commit: <sha>')
+# =========================================================================
+D="$TMP/b2-stale-commit"; mk_base_repo "$D"
+WT8="$TMP/wt-PBI-30"
+git -C "$D" worktree add -q -b pbi/PBI-30 "$WT8" main >/dev/null 2>&1
+mkdir -p "$WT8/docs/reviews" "$WT8/docs/tests-spec"
+( cd "$WT8" && green_gates PBI-30 slug-30 )
+SHA30="$(git -C "$D" rev-parse pbi/PBI-30)"
+printf 'G5: PASS\nCommit: %s\n' "$SHA30" > "$TMP/g5-30.log"
+# commit MAIS código na branch DEPOIS da evidência ter sido gravada — evidência fica velha
+( cd "$WT8" && echo "mudanca" >> README.md && git add README.md && git commit -qm "mais codigo depois da revisao" )
+expect_exit 1 "B2: código commitado após a evidência aprovar -> gates reprovam (evidência velha)" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-30 slug-30 --test-cmd true --g5-log '$TMP/g5-30.log'"
+
+# evidência sem linha 'Commit:' nenhuma, com branch pbi/<ID> resolvível -> reprova (não escapa a checagem)
+D="$TMP/b2-no-commit-line"; mk_base_repo "$D"
+WT9="$TMP/wt-PBI-31"
+git -C "$D" worktree add -q -b pbi/PBI-31 "$WT9" main >/dev/null 2>&1
+mkdir -p "$WT9/docs/reviews" "$WT9/docs/tests-spec"
+( cd "$WT9" && echo "# tests spec" > docs/tests-spec/slug-31.md
+  printf 'R1.1 - PASS - ok\n' > docs/reviews/PBI-31-verify.md
+  printf 'Veredicto: APROVADO\n' > docs/reviews/PBI-31-spec.md
+  printf 'Veredicto: APROVADO\n' > docs/reviews/PBI-31-code.md )
+printf 'G5: PASS\n' > "$TMP/g5-31.log"
+expect_exit 1 "B2: evidência sem linha 'Commit:' com branch pbi/<ID> resolvível -> exit 1" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-31 slug-31 --test-cmd true --g5-log '$TMP/g5-31.log'"
+
+# B2 + I3 — commitar a PRÓPRIA evidência (docs/reviews/**, docs/tests-spec/**) DEPOIS
+# da revisão (necessário pra 'worktree.sh finish' aceitar remover o worktree) NÃO
+# invalida o vínculo evidência↔commit: só commit que toca algo FORA desses caminhos
+# conta como "código novo" pro SHA de referência.
+D="$TMP/b2-evidence-commit-ok"; mk_base_repo "$D"
+WT10="$TMP/wt-PBI-32"
+git -C "$D" worktree add -q -b pbi/PBI-32 "$WT10" main >/dev/null 2>&1
+mkdir -p "$WT10/docs/reviews" "$WT10/docs/tests-spec"
+( cd "$WT10" && green_gates PBI-32 slug-32 )
+SHA32="$(git -C "$D" rev-parse pbi/PBI-32)"   # sha ANTES de commitar a evidência
+printf 'G5: PASS\nCommit: %s\n' "$SHA32" > "$TMP/g5-32.log"
+# agora commita a evidência (paperwork-only commit) — HEAD avança, mas nenhum
+# arquivo fora de docs/reviews|tests-spec foi tocado
+( cd "$WT10" && git add docs/reviews docs/tests-spec && git commit -qm "evidencia dos gates" )
+expect_exit 0 "B2+I3: commit só de docs/reviews|tests-spec não invalida a evidência -> exit 0" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-32 slug-32 --test-cmd true --g5-log '$TMP/g5-32.log'"
 
 echo
 echo "TOTAL: $N verificações"

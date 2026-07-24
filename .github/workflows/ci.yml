@@ -14,5 +14,5 @@ jobs:
         run: |
           git config --global user.email "ci@kiro-ai-team.local"
           git config --global user.name "kiro-ai-team CI"
-      - name: selftest.sh (sintaxe, JSON, frontmatter, links, gates, install)
+      - name: selftest.sh (sintaxe, JSON, frontmatter, links, gates, install, worktree)
         run: bash selftest.sh

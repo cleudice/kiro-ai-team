@@ -11,7 +11,7 @@ Camada de governança multiagente sobre o Kiro: papéis separados, gates mecâni
 | Agentes (papéis genéricos)                               | `.kiro/specs/` (requirements/design/tasks)                         |
 | Skills (procedimentos do ciclo)                          | `steering/product.md`, `tech.md`, `structure.md`                   |
 | Steering-base (regras universais + guidelines por stack) | `steering/retro-learnings.md` (aprendizados do projeto)            |
-| Templates de hooks e MCP                                 | `docs/issues                                                       | reviews | context/`, `mcp.json` efetivo |
+| Templates de hooks e MCP                                 | `docs/{issues,reviews,context}/`, `mcp.json` efetivo               |
 | Scripts (install, worktree)                              | Agentes específicos do projeto (ex.: analista de crashes do app X) |
 
 O central é **versionado por tag**; cada projeto instala uma versão e atualiza via `install.sh`.
@@ -65,7 +65,7 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
 ./install.sh /caminho/do/projeto                  # sem --stack: instala os 3 devs (dotnet/webforms/flutter)
 ./install.sh --scope global                       # engine em ~/.kiro (todos os repos)
 ./install.sh /caminho/do/projeto --scope hybrid   # engine global + camada do projeto
-./install.sh /caminho/do/projeto --update         # atualizar (lembra o --stack da instalação original; poda o que saiu do central)
+./install.sh /caminho/do/projeto --update         # atualizar (lembra o --stack da instalação original; poda só o que O TIME instalou e saiu do central — agentes/skills próprios do projeto sobrevivem)
 ./install.sh /caminho/do/projeto --dry-run        # mostra o que seria feito, sem tocar em nada
 ./install.sh /caminho/do/projeto --uninstall      # remove agents/skills do time (preserva steering/docs do projeto)
 ```

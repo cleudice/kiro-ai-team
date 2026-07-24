@@ -13,6 +13,13 @@
 #                 próprio manifesto) do destino/--kiro-home; NUNCA toca steering do
 #                 projeto (product/tech/structure/retro-learnings), docs/ nem AGENTS.md
 #                 (são conteúdo do projeto, não do time)
+#   --prune-unmanaged   (só --update) poda TODO agents/*.json|*.md e skills/* que não
+#                 estiver no conjunto atual do central — inclusive agentes/skills
+#                 próprios do projeto que não vieram daqui. Sem esta flag, --update
+#                 poda só o que o manifesto anterior registra como instalado pelo
+#                 time (agentes específicos do projeto sobrevivem). Sem manifesto
+#                 anterior (instalação legada) e sem esta flag, --update NÃO poda —
+#                 só avisa e sugere rodar com --prune-unmanaged.
 #
 # O que vai para onde:
 #   engine  (agents/, skills/)                → project ou global, conforme escopo
@@ -20,12 +27,21 @@
 #   steering do projeto (templates), docs/    → SEMPRE projeto
 #   mcp/ (fragmentos)                         → mesclar manualmente (projeto ou ~/.kiro/settings)
 set -euo pipefail
+# I6 — python3 é dependência dura (manifesto JSON: write_manifest/manifest_field
+# abaixo). Não vem com todo Git Bash no Windows (um dos ambientes que este repo
+# suporta explicitamente, ver mcp/README.md) — falhar cedo com mensagem acionável
+# em vez de um traceback python obscuro no meio da instalação.
+command -v python3 >/dev/null 2>&1 || {
+  echo "✘ python3 não encontrado no PATH — necessário pro manifesto JSON (.kiro-ai-team-version)." >&2
+  echo "  No Windows via Git Bash, instale Python e confirme que 'python3' (ou um alias/symlink pra 'python') está no PATH." >&2
+  exit 1
+}
 SRC="$(cd "$(dirname "$0")" && pwd)"
 VER="$(cat "$SRC/VERSION")"
 KIRO_HOME="${KIRO_HOME:-$HOME/.kiro}"
 VERFILE=".kiro-ai-team-version"
 OLD_VERFILE=".ai-team-version"
-SCOPE="project"; MODE="install"; DEST=""; STACK=""; DRYRUN=0
+SCOPE="project"; MODE="install"; DEST=""; STACK=""; DRYRUN=0; PRUNE_UNMANAGED=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -34,6 +50,7 @@ while [ $# -gt 0 ]; do
     --update) MODE="update"; shift;;
     --uninstall) MODE="uninstall"; shift;;
     --dry-run) DRYRUN=1; shift;;
+    --prune-unmanaged) PRUNE_UNMANAGED=1; shift;;
     --kiro-home) KIRO_HOME="${2:?dir}"; shift 2;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
     *) DEST="$1"; shift;;
@@ -139,23 +156,47 @@ install_engine() {  # $1 = raiz .kiro de destino
     _x cp -f "$SRC"/hooks/scripts/*.sh "$K/hooks/scripts/"
   fi
 
-  # poda (A1): converge $K/agents e $K/skills pro conjunto atual — remove o que está
-  # no destino mas não devia estar (skill/agente que saiu do central, dev-* de outro
-  # --stack, arquivo estranho). Diff contra o DIRETÓRIO real, não contra o manifesto
-  # antigo — autocura mesmo se o manifesto estiver ausente/corrompido/no formato legado.
-  # (Sob --dry-run, $K/agents e $K/skills ainda não receberam os arquivos novos acima
-  # — a listagem abaixo reflete o estado ANTES desta execução, que é a poda que
-  # aconteceria numa execução real.)
-  for f in "$K"/agents/*.json "$K"/agents/*.md; do
-    [ -e "$f" ] || continue
-    b="$(basename "$f")"
-    array_contains "$b" "${NEW_AGENTS[@]}" || { _x rm -f "$f"; echo "  ✂ podado (fora do conjunto atual): agents/$b"; }
-  done
-  for d in "$K"/skills/*/; do
-    [ -e "$d" ] || continue
-    b="$(basename "$d")"
-    array_contains "$b" "${NEW_SKILLS[@]}" || { _x rm -rf "$d"; echo "  ✂ podado (saiu do central): skills/$b"; }
-  done
+  # poda (A1, revisado B1): por padrão poda só o que o MANIFESTO ANTERIOR registra
+  # como instalado pelo time — nunca o diretório inteiro. Agente/skill próprio do
+  # projeto (ex.: analista de crashes do app X, ver README "a dualidade") não está
+  # no manifesto anterior como "nosso", então sobrevive. --prune-unmanaged restaura
+  # o comportamento antigo (converge o diretório real pro conjunto atual — útil só
+  # pra autocura de instalação legada/corrompida, nunca automático).
+  local PREV_AGENTS=() PREV_SKILLS=()
+  if [ -f "$K/$VERFILE" ]; then
+    read -r -a PREV_AGENTS <<< "$(manifest_field "$K/$VERFILE" agents)"
+    read -r -a PREV_SKILLS <<< "$(manifest_field "$K/$VERFILE" skills)"
+  fi
+  if [ "$PRUNE_UNMANAGED" = "1" ]; then
+    echo "  ⚠ --prune-unmanaged: podando TUDO fora do conjunto atual, inclusive agentes/skills próprios do projeto não reconhecidos"
+    for f in "$K"/agents/*.json "$K"/agents/*.md; do
+      [ -e "$f" ] || continue
+      b="$(basename "$f")"
+      array_contains "$b" "${NEW_AGENTS[@]}" || { _x rm -f "$f"; echo "  ✂ podado (fora do conjunto atual): agents/$b"; }
+    done
+    for d in "$K"/skills/*/; do
+      [ -e "$d" ] || continue
+      b="$(basename "$d")"
+      array_contains "$b" "${NEW_SKILLS[@]}" || { _x rm -rf "$d"; echo "  ✂ podado (fora do conjunto atual): skills/$b"; }
+    done
+  elif [ ${#PREV_AGENTS[@]} -eq 0 ] && [ ${#PREV_SKILLS[@]} -eq 0 ]; then
+    if [ -f "$K/$VERFILE" ] || ls "$K"/agents/*.json >/dev/null 2>&1; then
+      echo "  ℹ manifesto anterior ausente/legado — pulando poda pra não arriscar remover agentes/skills próprios do projeto. Rode com --prune-unmanaged se quiser convergir $K pro conjunto atual do central."
+    fi
+  else
+    for f in "$K"/agents/*.json "$K"/agents/*.md; do
+      [ -e "$f" ] || continue
+      b="$(basename "$f")"
+      array_contains "$b" "${NEW_AGENTS[@]}" && continue
+      array_contains "$b" "${PREV_AGENTS[@]}" && { _x rm -f "$f"; echo "  ✂ podado (saiu do central): agents/$b"; }
+    done
+    for d in "$K"/skills/*/; do
+      [ -e "$d" ] || continue
+      b="$(basename "$d")"
+      array_contains "$b" "${NEW_SKILLS[@]}" && continue
+      array_contains "$b" "${PREV_SKILLS[@]}" && { _x rm -rf "$d"; echo "  ✂ podado (saiu do central): skills/$b"; }
+    done
+  fi
 
   _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "$STACK" "${NEW_AGENTS[*]}" "${NEW_SKILLS[*]}"
   _x rm -f "$K/$OLD_VERFILE"
@@ -181,6 +222,17 @@ install_project_layer() {  # $1 = raiz do projeto
     [ -f "$K/steering/$t.md" ] || _x cp "$SRC/steering-base/templates/$t.md" "$K/steering/$t.md"
   done
   [ -f "$P/AGENTS.md" ] || { _x cp "$SRC/steering-base/templates/AGENTS.md" "$P/AGENTS.md"; echo "  ✔ AGENTS.md → raiz do projeto (padrão aberto p/ Codex/Cursor/etc.)"; }
+  # .gitignore: só os artefatos GERADOS por check-gates.sh (não a evidência em si,
+  # que é registro versionado do PBI) — append idempotente, nunca sobrescreve um
+  # .gitignore existente do projeto.
+  if [ "$DRYRUN" != "1" ]; then
+    touch "$P/.gitignore"
+    for line in "docs/reviews/.gate-ledger" "docs/reviews/.merge-count" "docs/reviews/*-g1-run.log"; do
+      grep -qxF "$line" "$P/.gitignore" 2>/dev/null || echo "$line" >> "$P/.gitignore"
+    done
+  else
+    echo "  (dry-run) garantir entradas de .gate-ledger/.merge-count/*-g1-run.log em $P/.gitignore"
+  fi
   _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "@keep@" "@keep@" "@keep@"
   _x rm -f "$K/$OLD_VERFILE"
   echo "  ✔ camada do projeto → $P (steering + docs/)"

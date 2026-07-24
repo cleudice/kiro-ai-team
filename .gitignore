@@ -1,0 +1,5 @@
+# artefatos de execução dos gates (check-gates.sh) — dados de auditoria locais,
+# não código do time; regenerados a cada rodada, poluem diff sem agregar nada.
+docs/reviews/.gate-ledger
+docs/reviews/.merge-count
+docs/reviews/*-g1-run.log

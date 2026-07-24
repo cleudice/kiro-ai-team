@@ -8,11 +8,14 @@ Documento único de operação. O [README](README.md) explica o _porquê_ da arq
 
 ## 1. Setup (uma vez por repo)
 
+Pré-requisito: `python3` no PATH (`install.sh` usa pra ler/escrever o manifesto JSON) — falha cedo com mensagem clara se ausente. No Windows via Git Bash, confirme que `python3` está disponível antes de instalar.
+
 ```bash
 git clone <org>/kiro-ai-team
 ./kiro-ai-team/install.sh /caminho/do/projeto --stack dotnet    # repo só .NET — recomendado
 ./kiro-ai-team/install.sh /caminho/do/projeto                   # sem --stack: instala TODOS os stacks (dev-dotnet/webforms/flutter) — pode dele depois
-./kiro-ai-team/install.sh /caminho/do/projeto --update          # atualizar (lembra o --stack original; poda o que saiu do central)
+./kiro-ai-team/install.sh /caminho/do/projeto --update          # atualizar (lembra o --stack original; poda só o que O TIME instalou e saiu do central)
+./kiro-ai-team/install.sh /caminho/do/projeto --update --prune-unmanaged  # idem, mas converge TUDO pro conjunto atual (remove também agente/skill próprio do projeto não reconhecido — use com cautela)
 ./kiro-ai-team/install.sh /caminho/do/projeto --dry-run         # mostra o que seria feito, sem tocar em nada
 ./kiro-ai-team/install.sh /caminho/do/projeto --uninstall       # remove agents/skills do time (preserva steering/docs do projeto)
 ```
@@ -24,13 +27,13 @@ Cada agente vai em **dois formatos**: `.json` (a CLI do Kiro lê este) e `.md` c
 Depois do install:
 
 1. **MCP** — mescle em `.kiro/settings/mcp.json` apenas os fragmentos de `kiro-ai-team/mcp/` que este repo usa (Jira/Bitbucket? GitHub? Firebase? SQLcl?). Preencha credenciais locais. Donos e quirks de cada fragmento: [mcp/README.md](mcp/README.md).
-2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido: `format-dotnet`/`format-flutter` (build+format ao salvar), `format-oracle` (linter determinístico ao salvar `.sql`), `task-checkpoint` (build+teste automático após cada task marcada `[x]` — mecaniza o checkpoint do `task-preflight`), `preflight-branch` (avisa no início da sessão se a branch atual não é o worktree do PBI), `issue-intake` (triagem automática de brief novo). O guard "`qa-blackbox` nunca lê `src/`" já vem embutido no próprio `agents/qa-blackbox.json` (hook por-agente, não precisa copiar nada à parte) — é defesa em profundidade, não substitui o prompt (ver `steering/quality-gates.md`). Confirme depois no painel "Agent Hooks" que os hooks copiados aparecem.
+2. **Hooks** — copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os que fizerem sentido: `format-dotnet`/`format-flutter` (build+format ao salvar), `format-oracle` (linter determinístico ao salvar `.sql`), `task-checkpoint` (build+teste automático após cada task marcada `[x]` — mecaniza o checkpoint do `task-preflight`), `preflight-branch` (avisa no início da sessão se a branch atual não é o worktree do PBI), `issue-intake` (triagem automática de brief novo). O guard "`qa-blackbox` nunca lê `src/`" já vem embutido no próprio `agents/qa-blackbox.json` (hook por-agente, não precisa copiar nada à parte) — é defesa em profundidade, não substitui o prompt (ver `steering/quality-gates.md`). Confirme depois no painel "Agent Hooks" que os hooks copiados aparecem. **Estes triggers ainda não foram verificados empiricamente contra um Kiro real** (`hooks/VERIFY.md` tem o procedimento e o resultado registrado) — trate "mecaniza automaticamente" como best-effort até esse arquivo confirmar cada trigger.
 3. **Steering do projeto** — preencha `product.md`, `tech.md` (build/test commands!) e `structure.md`. Atalho: rode a skill `reverse-engineer-project`, que gera `docs/context/` e preenche os templates vazios.
 4. **Commit do `.kiro/` + `AGENTS.md`** — o time é versionado junto do código; quem clonar o repo herda o time.
 5. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; confirme no painel "Agent Steering & Skills" que os 6-9 agentes e as skills aparecem antes do primeiro PBI.
 6. **(Recomendado) `kiroAgent.trustedCommands`** — sem isso, todo `dotnet test`/`flutter test`/`check-gates.sh` pede aprovação manual. Configure em Settings → Kiro Agent: Trusted Commands (global ou por workspace) os comandos de build/test do seu stack, com `*` no final pra aceitar argumentos (ex.: `"dotnet test *"`, `"git status *"`). Nunca confie largo em comandos destrutivos (`git push`, `git reset --hard`, `npx *`) nem em `check-gates.sh` (recebe `--test-cmd` arbitrário — aprovação manual aqui é intencional).
 
-Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`) — confira o campo `version`. `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central (o próprio `install.sh` converge o diretório real pro conjunto atual, autocura mesmo se o manifesto estiver ausente/legado).
+Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`) — confira o campo `version`. `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central **comparando contra o que o manifesto anterior registra como instalado pelo time** — agente/skill próprio do projeto (nunca instalado por este installer) nunca é tocado, mesmo que não esteja no conjunto atual do central (regra de ouro da dualidade, ver README). Manifesto ausente/em formato legado → `--update` não poda nada por padrão (evita apagar algo às cegas); `--prune-unmanaged` converge o diretório real pro conjunto atual do central, à moda antiga — use só quando tiver certeza de que não há artefato próprio do projeto ali.
 
 ### Escopos de instalação
 
@@ -219,7 +222,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
   ```bash
   bash .kiro/skills/merge-gate/scripts/check-gates.sh <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
   ```
-  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com a linha `G5: PASS`) ou de `--skip-g5 "<motivo>"` como escape explícito. Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
+  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o HEAD atual de `pbi/<PBI>` — evidência aprovada num commit anterior não sobrevive a um commit novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
 - **`resolve-issue`** — fecha o ciclo no tracker de origem. Dono: `orchestrator`, automático ao fim do `merge-gate`.
 
 ### Loops
@@ -231,13 +234,15 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 ## 9. Gates — o que cada um checa, mecanicamente
 
-| Gate | Confere                                                   | Arquivo-evidência                                               | Quem produz a evidência | Bloqueante?                                                           |
-| ---- | --------------------------------------------------------- | --------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
-| G1   | testes black-box existem e passam                         | `docs/tests-spec/<slug>.md` + execução (`--test-cmd`)           | `qa-blackbox`           | sempre (dispensável só em manutenção sem critério novo)               |
-| G2   | comportamento real, sem FAIL/BLOCKED em linha de critério | `docs/reviews/<PBI>-verify.md`                                  | dev via `verify-change` | sempre                                                                |
-| G3   | diff cumpre a spec                                        | `docs/reviews/<PBI>-spec.md` = `Veredicto: APROVADO` (1ª linha) | `reviewer-spec`         | sempre                                                                |
-| G4   | qualidade técnica                                         | `docs/reviews/<PBI>-code.md` = `Veredicto: APROVADO` (1ª linha) | `reviewer-code`         | sempre                                                                |
-| G5   | regressão da integração                                   | log com linha `G5: PASS` (`--g5-log`)                           | `merge-gate`            | sim, por padrão — `--skip-g5 "<motivo>"` é o único escape, registrado |
+| Gate | Confere                                                   | Arquivo-evidência                                                                 | Quem produz a evidência | Bloqueante?                                                           |
+| ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
+| G1   | testes black-box existem e passam                         | `docs/tests-spec/<slug>.md` + execução (`--test-cmd`)                             | `qa-blackbox`           | sempre (dispensável só em manutenção sem critério novo)               |
+| G2   | comportamento real, sem FAIL/BLOCKED em linha de critério | `docs/reviews/<PBI>-verify.md` = `Commit: <sha>` + linhas de critério             | dev via `verify-change` | sempre                                                                |
+| G3   | diff cumpre a spec                                        | `docs/reviews/<PBI>-spec.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-spec`         | sempre                                                                |
+| G4   | qualidade técnica                                         | `docs/reviews/<PBI>-code.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-code`         | sempre                                                                |
+| G5   | regressão da integração                                   | log com linhas `G5: PASS` + `Commit: <sha>` (`--g5-log`)                          | `merge-gate`            | sim, por padrão — `--skip-g5 "<motivo>"` é o único escape, registrado |
+
+`Commit: <sha>` precisa ser (prefixo d)o HEAD atual de `pbi/<PBI>` (B2) — sem branch `pbi/<PBI>` resolvível (uso manual/exemplo fora de um PBI real), a checagem é pulada.
 
 Script único, determinístico: `skills/merge-gate/scripts/check-gates.sh`. Reprovação em qualquer G devolve ao dono da coluna 3 — o `merge-gate` não julga, só confere. `bump-counter` (rodado após merge efetivo) agenda `audit-integration` a cada 5.
 
@@ -331,4 +336,4 @@ triage-issue/triage-crash → write-requirements → write-design → write-task
   → (a cada 5 merges) audit-integration → (falha repetida) retrospective
 ```
 
-Ver também: [README](README.md) (arquitetura e por quê) · [mcp/README.md](mcp/README.md) (fragmentos MCP) · `docs/archive/` (documentos históricos).
+Ver também: [README](README.md) (arquitetura e por quê) · [mcp/README.md](mcp/README.md) (fragmentos MCP) · [hooks/VERIFY.md](hooks/VERIFY.md) (verificação empírica dos triggers de hook) · `docs/archive/` (documentos históricos).

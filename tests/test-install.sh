@@ -54,6 +54,14 @@ assert_exists "$D1/docs/reviews"
 assert_exists "$D1/docs/context"
 assert_exists "$D1/docs/tests-spec"
 
+# .gitignore ganha as entradas de artefatos gerados por check-gates.sh (não a
+# evidência em si — só ledger/contador/log de execução)
+assert_exists "$D1/.gitignore"
+grep -qxF "docs/reviews/.gate-ledger" "$D1/.gitignore" && pass ".gitignore: entrada .gate-ledger" || fail ".gitignore sem entrada .gate-ledger"
+N=$((N+1))
+grep -qxF "docs/reviews/.merge-count" "$D1/.gitignore" && pass ".gitignore: entrada .merge-count" || fail ".gitignore sem entrada .merge-count"
+N=$((N+1))
+
 assert_exists "$K1/.kiro-ai-team-version"
 V1="$(cat "$K1/.kiro-ai-team-version" 2>/dev/null | tr -d '[:space:]')"
 [ -n "$V1" ] && pass "versão gravada: $V1" || fail "arquivo de versão vazio"
@@ -69,7 +77,7 @@ assert_exists "$K2/agents/dev-webforms.json"
 assert_exists "$K2/agents/dev-flutter.json"
 
 # =========================================================================
-# 3) --update PODA de verdade (A1): skill removida do central some do projeto
+# 3) --update PODA de verdade (A1): skill que o TIME instalou e saiu do central some
 # =========================================================================
 D3="$TMP/proj-update"; mkdir -p "$D3"
 bash "$INSTALL" "$D3" --stack dotnet >/tmp/install-out-3.log 2>&1
@@ -81,12 +89,46 @@ description: skill que não existe mais no central, deveria sumir no update
 ---
 # fantasma" > "$K3/skills/skill-fantasma/SKILL.md"
 assert_exists "$K3/skills/skill-fantasma/SKILL.md"
+# simula que skill-fantasma FOI instalada por uma versão anterior do time
+# (registrada no manifesto) — só assim a poda-por-manifesto (B1) a reconhece
+# como "nossa" e a remove; sem isso ela seria tratada como artefato do projeto.
+python3 -c "
+import json
+p = '$K3/.kiro-ai-team-version'
+d = json.load(open(p))
+d['skills'] = d.get('skills', []) + ['skill-fantasma']
+json.dump(d, open(p, 'w'), indent=2)
+"
 
 bash "$INSTALL" "$D3" --update >/tmp/install-out-3b.log 2>&1
 assert_absent "$K3/skills/skill-fantasma"
 
 # skills reais continuam lá após o update
 assert_exists "$K3/skills/merge-gate/SKILL.md"
+
+# =========================================================================
+# 3b) B1 — agente/skill PRÓPRIO DO PROJETO (nunca registrado como instalado
+#     pelo time) sobrevive ao --update, mesmo sem estar no conjunto atual do
+#     central. Antes da correção, o --update convergia o diretório inteiro e
+#     apagava isto silenciosamente (contradizia README "a dualidade").
+# =========================================================================
+echo '{"name":"analista-crash-app-x","description":"agente específico deste projeto, não vem do central"}' \
+  > "$K3/agents/analista-crash-app-x.json"
+mkdir -p "$K3/skills/skill-do-projeto"
+echo "---
+name: skill-do-projeto
+description: skill própria deste projeto
+---
+# skill do projeto" > "$K3/skills/skill-do-projeto/SKILL.md"
+
+bash "$INSTALL" "$D3" --update >/tmp/install-out-3c.log 2>&1
+assert_exists "$K3/agents/analista-crash-app-x.json"
+assert_exists "$K3/skills/skill-do-projeto/SKILL.md"
+
+# --prune-unmanaged restaura o comportamento antigo (converge tudo) — remove os dois
+bash "$INSTALL" "$D3" --update --prune-unmanaged >/tmp/install-out-3d.log 2>&1
+assert_absent "$K3/agents/analista-crash-app-x.json"
+assert_absent "$K3/skills/skill-do-projeto"
 
 # =========================================================================
 # 4) --update sem repassar --stack MEMORIZA o stack original (A2)
