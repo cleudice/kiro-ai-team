@@ -108,9 +108,9 @@ assert_exists "$K3/skills/skill-fantasma/SKILL.md"
 python3 -c "
 import json
 p = '$K3/.kiro-ai-team-version'
-d = json.load(open(p))
+d = json.load(open(p, encoding='utf-8'))
 d['skills'] = d.get('skills', []) + ['skill-fantasma']
-json.dump(d, open(p, 'w'), indent=2)
+json.dump(d, open(p, 'w', encoding='utf-8'), indent=2)
 "
 
 bash "$INSTALL" "$D3" --update >"$TMP"/install-out-3b.log 2>&1

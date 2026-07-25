@@ -50,7 +50,15 @@ case "$CMD" in
         && git worktree add "$WTQA" "qa/pbi/$ID" \
         || git worktree add -b "qa/pbi/$ID" "$WTQA" "pbi/$ID"
       SPARSE=('/*'); for d in $CODE_DIRS; do SPARSE+=("!/$d/"); done
-      git -C "$WTQA" sparse-checkout set --no-cone "${SPARSE[@]}"
+      # extensions.worktreeConfig: sem ela, sparse-checkout é config REPO-WIDE, não
+      # por worktree — a doc oficial do git pra "worktrees com padrões diferentes no
+      # mesmo repo" (nosso caso: main cheio, QA sparse) pede isto antes do init/set.
+      # actions/checkout@v4 explicitamente desliga esta extensão no setup do runner
+      # (`config --local --unset-all extensions.worktreeConfig`) — sem reativar, o
+      # working tree do worktree QA no Windows não sincronizava com o padrão sparse.
+      git -C "$ROOT" config extensions.worktreeConfig true
+      git -C "$WTQA" sparse-checkout init --no-cone
+      git -C "$WTQA" sparse-checkout set "${SPARSE[@]}"
       echo "OK worktree QA: $WTQA (branch qa/pbi/$ID, SEM$(printf ' %s/' $CODE_DIRS)) — sessão do qa-blackbox roda aqui"
       exit 0
     fi
