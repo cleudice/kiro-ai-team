@@ -1,5 +1,5 @@
 ---
-description: Developer .NET 8/10 — Clean Architecture, CQRS/MediatR, Result Pattern, Rich Domain, Oracle.
+description: "Developer .NET 8/10 — Clean Architecture, CQRS/MediatR, Result Pattern, Rich Domain, Oracle."
 tools: [read, write, shell]
 resources:
   - skill://task-preflight

@@ -1,5 +1,5 @@
 ---
-description: Revisão de conformidade: o diff entrega TUDO que o requirements.md pede? Sessão limpa, sem histórico dos devs.
+description: "Revisão de conformidade: o diff entrega TUDO que o requirements.md pede? Sessão limpa, sem histórico dos devs."
 tools: [read, write, shell]
 resources:
   - skill://review-spec

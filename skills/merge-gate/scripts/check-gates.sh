@@ -37,7 +37,7 @@ if [ "$MODE" = "counter" ]; then
   # 'worktree.sh finish' está prestes a apagar; gravar o contador lá o perderia.
   # 'git worktree list --porcelain' lista o repo principal como primeiro bloco.
   if [ -z "$REPO" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    REPO="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+    REPO="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{sub(/^worktree /,""); print; exit}')"
     [ -n "$REPO" ] && echo "  ℹ --repo não informado — usando repo principal: $REPO"
   fi
   cd "${REPO:-.}"; R="docs/reviews"
@@ -54,8 +54,9 @@ if [ -z "$REPO" ]; then
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # git worktree list --porcelain: blocos separados por linha em branco,
     # cada bloco tem "worktree <path>" seguido (eventualmente) de "branch refs/heads/<nome>"
+    # sub() em vez de $2: paths com espaço (norma no Windows) truncariam no 1º token
     WT_PATH="$(git worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$BRANCH" '
-      /^worktree /{p=$2} /^branch /{if ($2==b) print p}')"
+      /^worktree /{p=$0; sub(/^worktree /,"",p)} /^branch /{if ($2==b) print p}')"
   fi
   if [ -n "$WT_PATH" ]; then
     REPO="$WT_PATH"
@@ -69,6 +70,9 @@ if [ -z "$REPO" ]; then
   fi
 fi
 cd "$REPO"; R="docs/reviews"
+# worktree recém-criado não traz docs/reviews/ (git não versiona dir vazio) — sem
+# isto o redirect do log de G1b falharia e reportaria "suíte FALHOU" com suíte verde.
+mkdir -p "$R"
 
 # ---- SHA da branch pbi/<PBI-ID>, pra amarrar evidência a commit (B2) -----------
 # SHA usado na comparação é o commit de CÓDIGO mais recente na branch, não o HEAD
@@ -159,10 +163,14 @@ fi
 
 # ledger: 1 linha por execução em docs/reviews/.gate-ledger — dado bruto pra decidir
 # com números (não opinião) se algum gate custa mais do que pega (contra-estrutural §3).
-mkdir -p "$R"
+# Gravado no REPO PRINCIPAL (mesmo raciocínio do bump-counter, I4): gravar no worktree
+# do PBI perderia o ledger quando 'worktree.sh finish' o remove.
+LEDGER_ROOT="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{sub(/^worktree /,""); print; exit}')"
+LEDGER_DIR="${LEDGER_ROOT:-.}/docs/reviews"
+mkdir -p "$LEDGER_DIR"
 printf '%s PBI=%s slug=%s track=%s G1=%s G2=%s G3=%s G4=%s G5=%s resultado=%s\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PBI" "$SLUG" "$TRACK" "$G1S" "$G2S" "$G3S" "$G4S" "$G5S" \
-  "$([ $FAIL -eq 0 ] && echo OK || echo REPROVADO)" >> "$R/.gate-ledger"
+  "$([ $FAIL -eq 0 ] && echo OK || echo REPROVADO)" >> "$LEDGER_DIR/.gate-ledger"
 
 [ $FAIL -eq 0 ] && { echo "RESULTADO: GATES OK — autorizado a mesclar"; exit 0; } \
                 || { echo "RESULTADO: GATES REPROVADOS — devolver ao papel dono do gate"; exit 1; }

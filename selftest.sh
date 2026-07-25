@@ -28,6 +28,27 @@ for p in glob.glob('agents/*.json'):
             m = re.search(r'\.kiro/hooks/(scripts/\S+\.sh)', cmd)
             if m and not os.path.exists(os.path.join('hooks', m.group(1))):
                 fail.append(f"{p}: hook referencia {m.group(1)} que não existe em hooks/")
+# P0-1 — frontmatter dos agents/*.md precisa ser YAML parseável de verdade: o check
+# de sincronia (gen-agent-md.sh --check) compara texto, não valida YAML — foi assim
+# que 4 agentes com ':' na description ficaram com frontmatter inválido sem ninguém
+# reprovar. Usa PyYAML se existir; senão, checa que valores com ': ' estão entre aspas.
+try:
+    import yaml as _yaml
+except ImportError:
+    _yaml = None
+for p in glob.glob('agents/*.md'):
+    s = open(p, encoding='utf-8').read()
+    m = re.match(r'^---\n(.*?)\n---\n', s, re.S)
+    if not m: fail.append(f"{p}: sem frontmatter"); continue
+    fm = m.group(1)
+    if _yaml:
+        try: _yaml.safe_load(fm)
+        except Exception as e: fail.append(f"{p}: frontmatter YAML inválido — {e}")
+    else:
+        for line in fm.splitlines():
+            lm = re.match(r'^\s*(?:- )?[A-Za-z_-]+: (.+)$', line)
+            if lm and ': ' in lm.group(1) and not lm.group(1).startswith(('"', "'")):
+                fail.append(f"{p}: valor com ': ' sem aspas no frontmatter — YAML quebrado: {line.strip()}")
 # B1/B3 — todo caminho `.kiro/<algo>.sh` citado em agente/skill/hook/doc precisa
 # corresponder a um arquivo que install.sh de fato instala (agents/, skills/**,
 # hooks/scripts/, scripts/) — é este check que teria pego scripts/worktree.sh

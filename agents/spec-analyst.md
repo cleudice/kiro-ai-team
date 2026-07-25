@@ -1,5 +1,5 @@
 ---
-description: Transforma briefs em specs Kiro (requirements EARS → design → tasks). Obrigado a perguntar antes de congelar requisitos.
+description: "Transforma briefs em specs Kiro (requirements EARS → design → tasks). Obrigado a perguntar antes de congelar requisitos."
 tools: [read, write]
 resources:
   - skill://write-requirements

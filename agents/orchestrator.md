@@ -1,5 +1,5 @@
 ---
-description: Coordena o time: roteia issues, acompanha estado dos PBIs, executa o merge-gate e o resolve-issue. Nunca escreve código de produção.
+description: "Coordena o time: roteia issues, acompanha estado dos PBIs, executa o merge-gate e o resolve-issue. Nunca escreve código de produção."
 tools: [read, write, shell]
 resources:
   - skill://triage-issue

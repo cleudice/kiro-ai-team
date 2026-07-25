@@ -8,7 +8,7 @@
       "matcher": ".*\\.dart$",
       "action": {
         "type": "command",
-        "command": "bash .kiro/hooks/scripts/format-flutter.sh"
+        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/format-flutter.sh\""
       },
       "timeout": 120,
       "enabled": true

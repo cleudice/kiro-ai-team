@@ -1,5 +1,5 @@
 ---
-description: Auditoria pós-integração do repo inteiro: duplicação, drift de spec, segurança. Só reporta — não corrige.
+description: "Auditoria pós-integração do repo inteiro: duplicação, drift de spec, segurança. Só reporta — não corrige."
 tools: [read, write, shell]
 resources:
   - skill://audit-integration

@@ -92,7 +92,7 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
   - Sessão limpa 1 (aba nova): `reviewer-spec` → `review-spec` (diff × requirements).
   - Sessão limpa 2 (outra aba nova): `reviewer-code` → `review-code`.
 - > "orchestrator, merge-gate do PROJ-1234"
-  > Ele confere as 5 evidências **em disco** (G5 é bloqueante por padrão — sem log de regressão, reprova; escape explícito é `--skip-g5 "<motivo>"`), roda a regressão, mescla serializado, `.kiro/scripts/worktree.sh finish`, e fecha no tracker de origem com `resolve-issue`.
+  > Ele confere as 5 evidências **em disco** (G5 é bloqueante por padrão — sem log de regressão, reprova; escape explícito é `--skip-g5 "<motivo>"`), roda a regressão, mescla serializado, dá `git push origin <main>` (o `finish` exige o merge presente em `origin/<main>`) e então `.kiro/scripts/worktree.sh finish`, e fecha no tracker de origem com `resolve-issue`.
 
 ### Seu papel humano (só 3 momentos)
 

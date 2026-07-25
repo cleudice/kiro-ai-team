@@ -1,5 +1,5 @@
 ---
-description: Revisão técnica: correção, simplificação, convenções, segurança. Sessão limpa.
+description: "Revisão técnica: correção, simplificação, convenções, segurança. Sessão limpa."
 tools: [read, write, shell]
 resources:
   - skill://review-code

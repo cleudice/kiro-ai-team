@@ -1,5 +1,5 @@
 ---
-description: Developer Flutter/Dart — apps mobile com backend .NET e Firebase.
+description: "Developer Flutter/Dart — apps mobile com backend .NET e Firebase."
 tools: [read, write, shell]
 resources:
   - skill://task-preflight

@@ -27,7 +27,8 @@ for jpath in sorted(glob.glob(os.path.join(root, "agents", "*.json"))):
     mpath = os.path.join(root, "agents", f"{name}.md")
 
     fm = []
-    fm.append(f"description: {data['description']}")
+    # json.dumps: descriptions contêm ': ' e quebrariam o YAML sem aspas (P0-1)
+    fm.append(f"description: {json.dumps(data['description'], ensure_ascii=False)}")
     if "model" in data:
         fm.append(f"model: {data['model']}")
     if "tools" in data:
@@ -43,8 +44,8 @@ for jpath in sorted(glob.glob(os.path.join(root, "agents", "*.json"))):
         for trigger, entries in data["hooks"].items():
             fm.append(f"  {trigger}:")
             for e in entries:
-                fm.append(f"    - matcher: {e['matcher']}")
-                fm.append(f"      command: {e['command']}")
+                fm.append(f"    - matcher: {json.dumps(e['matcher'], ensure_ascii=False)}")
+                fm.append(f"      command: {json.dumps(e['command'], ensure_ascii=False)}")
 
     content = "---\n" + "\n".join(fm) + "\n---\n" + data["prompt"].rstrip() + "\n"
 

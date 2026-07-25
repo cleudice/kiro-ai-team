@@ -1,5 +1,5 @@
 ---
-description: Developer legado — ASP.NET WebForms (.NET Framework 4.8), ADO.NET, Oracle PL/SQL.
+description: "Developer legado — ASP.NET WebForms (.NET Framework 4.8), ADO.NET, Oracle PL/SQL."
 tools: [read, write, shell]
 resources:
   - skill://task-preflight
