@@ -12,7 +12,10 @@ python3 - << 'PY' || FAIL=1
 import re,sys,glob,os,json
 fail=[]
 for p in glob.glob('skills/*/SKILL.md'):
-    s=open(p).read(); folder=p.split('/')[1]
+    # basename(dirname(p)), não split('/')[1]: glob.glob no Windows devolve
+    # separador '\\' — split('/') não achava nada e IndexError quebrava o
+    # selftest inteiro antes de chegar nos testes de verdade.
+    s=open(p).read(); folder=os.path.basename(os.path.dirname(p))
     m=re.match(r'^---\n(.*?)\n---\n', s, re.S)
     if not m: fail.append(f"{p}: sem frontmatter"); continue
     fm=m.group(1)
@@ -99,7 +102,7 @@ for p in glob.glob('agents/*.json'):
     name = json.load(open(p)).get('name') or os.path.splitext(os.path.basename(p))[0]
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: agente '{name}' não referenciado")
 for p in glob.glob('skills/*/SKILL.md'):
-    name = p.split('/')[1]
+    name = os.path.basename(os.path.dirname(p))
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: skill '{name}' não referenciada")
 # hooks/*.json e mcp/*.json também precisam aparecer referenciados em algum doc
 # operacional — mesmo raciocínio anti-drift acima (M4), agora cobrindo o que
