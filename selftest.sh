@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # selftest do kiro-ai-team — os gates aplicados ao próprio repo. exit 0 = íntegro.
-set -uo pipefail; cd "$(dirname "$0")"; FAIL=0
+set -uo pipefail; cd "$(dirname "$0")" || exit 1; FAIL=0
 bad(){ echo "✘ $1"; FAIL=1; }; ok(){ echo "✔ $1"; }
 for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh hooks/scripts/*.sh tests/*.sh; do
   [ -e "$f" ] || continue; bash -n "$f" && ok "bash: $f" || bad "sintaxe bash: $f"; done
-for f in agents/*.json mcp/*.json hooks/*.json; do
-  python3 -c "import json;json.load(open('$f'))" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
+for f in agents/*.json mcp/*.json hooks/*.json hooks/diagnostics/*.json; do
+  [ -e "$f" ] || continue
+  # path via sys.argv (não interpolado): path com aspa simples quebraria o literal
+  python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$f" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
 python3 - << 'PY' || FAIL=1
 import re,sys,glob,os,json
 fail=[]
@@ -79,11 +81,17 @@ for p in glob.glob('steering-base/**/*.md', recursive=True):
     s=open(p).read()
     if 'templates/' in p or '/global/' in p: continue
     if not s.startswith('---'): fail.append(f"{p}: sem frontmatter inclusion")
-for doc in ['README.md','OPERACAO.md','mcp/README.md']:
+link_docs = (['README.md','OPERACAO.md','mcp/README.md','CHANGELOG.md','hooks/VERIFY.md',
+              'CONTRIBUTING.md','SECURITY.md']
+             + glob.glob('examples/*/README.md') + glob.glob('skills/*/SKILL.md') + glob.glob('agents/*.md'))
+for doc in link_docs:
     if not os.path.exists(doc): continue
+    base = os.path.dirname(doc)
     for l in re.findall(r'\]\(([^)#]+)\)', open(doc).read()):
         if l.startswith('http'): continue
-        if not os.path.exists(l): fail.append(f"{doc}: link quebrado -> {l}")
+        # link relativo resolve a partir do próprio doc
+        if not (os.path.exists(os.path.join(base, l)) or os.path.exists(l)):
+            fail.append(f"{doc}: link quebrado -> {l}")
 # OPERACAO.md é o único doc operacional agora — se um agente/skill sumir dele, é o
 # próximo CATALOGO desatualizado nascendo (M4).
 op = open('OPERACAO.md').read() if os.path.exists('OPERACAO.md') else ''
@@ -97,11 +105,29 @@ for p in glob.glob('skills/*/SKILL.md'):
 # operacional — mesmo raciocínio anti-drift acima (M4), agora cobrindo o que
 # ficou de fora na primeira rodada (B3 da segunda auditoria).
 mcp_readme = open('mcp/README.md').read() if os.path.exists('mcp/README.md') else ''
+HOOK_TRIGGERS = {'PostFileSave', 'PostFileCreate', 'PostTaskExec', 'SessionStart', 'preToolUse'}
 for p in sorted(glob.glob('hooks/*.json')):
     base = os.path.basename(p)
-    if base.startswith('_'): continue  # _canary.json é instrumentação de VERIFY.md, não hook de produto
     name = base[:-len('.json')]
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: hook '{name}' não referenciado")
+    # trigger fora do conjunto conhecido = typo silencioso (hook nunca dispara)
+    hj = json.load(open(p))
+    trg = (hj.get('when') or {}).get('type') or hj.get('trigger')
+    if trg and trg not in HOOK_TRIGGERS:
+        fail.append(f"{p}: trigger '{trg}' fora do conjunto conhecido {sorted(HOOK_TRIGGERS)}")
+# bloco sincronizado entre review-spec e review-code (marcador <!-- sync: veredicto-commit -->):
+# a linha imediatamente após o marcador precisa ser idêntica nos dois — duplicação
+# aceita conscientemente, drift não.
+sync = {}
+for p in ('skills/review-spec/SKILL.md', 'skills/review-code/SKILL.md'):
+    lines = open(p, encoding='utf-8').read().splitlines()
+    for i, l in enumerate(lines):
+        if 'sync: veredicto-commit' in l and i + 1 < len(lines):
+            sync[p] = lines[i + 1]
+if len(sync) == 2 and len(set(sync.values())) != 1:
+    fail.append("bloco 'sync: veredicto-commit' divergiu entre review-spec e review-code — sincronize as duas linhas")
+elif len(sync) < 2:
+    fail.append("marcador 'sync: veredicto-commit' ausente em review-spec ou review-code")
 for p in sorted(glob.glob('mcp/*.json')):
     base = os.path.basename(p)
     if base not in mcp_readme: fail.append(f"mcp/README.md: fragmento '{base}' não referenciado")
@@ -127,4 +153,6 @@ bash scripts/gen-agent-md.sh --check && ok "agents/*.md em sincronia com agents/
 bash tests/test-check-gates.sh || bad "tests/test-check-gates.sh reprovou"
 bash tests/test-install.sh || bad "tests/test-install.sh reprovou"
 bash tests/test-worktree.sh || bad "tests/test-worktree.sh reprovou"
+bash tests/test-hooks.sh || bad "tests/test-hooks.sh reprovou"
+bash tests/test-examples.sh || bad "tests/test-examples.sh reprovou"
 [ $FAIL -eq 0 ] && echo "SELFTEST OK" || { echo "SELFTEST REPROVADO"; exit 1; }
