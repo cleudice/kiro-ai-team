@@ -225,8 +225,19 @@ assert_absent "$D6/.kiro/skills/merge-gate"
 # desta correção ficavam órfãos (não registrados em manifesto nenhum).
 assert_absent "$D6/.kiro/scripts/worktree.sh"
 assert_absent "$D6/.kiro/scripts/kiro-paths.sh"
+# hooks/scripts/*.sh também saem (registrados em hook_scripts no manifesto);
+# antes ficavam órfãos — mesma classe do I5, corrigida um nível abaixo
+assert_absent "$D6/.kiro/hooks/scripts/qa-blackbox-guard.sh"
+assert_absent "$D6/.kiro/hooks/scripts/lib.sh"
+# diretórios vazios criados pelo installer não sobram como ruído
+assert_absent "$D6/.kiro/agents"
+assert_absent "$D6/.kiro/hooks/scripts"
 assert_exists "$D6/.kiro/steering/product.md"
 assert_exists "$D6/AGENTS.md"
+# .gitignore: as 3 linhas do time saem, o resto do projeto fica
+if grep -qxF "docs/reviews/.gate-ledger" "$D6/.gitignore" 2>/dev/null; then
+  fail ".gitignore: linha do time sobrou após uninstall"
+else pass ".gitignore: linhas do time removidas no uninstall"; fi
 
 echo
 echo "TOTAL: $N verificações"

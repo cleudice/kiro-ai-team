@@ -3,3 +3,7 @@
 docs/reviews/.gate-ledger
 docs/reviews/.merge-count
 docs/reviews/*-g1-run.log
+# rodar o exemplo do README de PBI-EXEMPLO gera estes no fixture — não versionar
+examples/*/docs/reviews/.gate-ledger
+examples/*/docs/reviews/*-g1-run.log
+examples/*/docs/reviews/*-gate.md

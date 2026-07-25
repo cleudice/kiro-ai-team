@@ -6,7 +6,7 @@
 #   ./install.sh <projeto> --stack dotnet       # só agente(s)+guideline(s) do stack informado
 #   ./install.sh --scope global                 # engine (agents+skills) em ~/.kiro
 #   ./install.sh <projeto> --scope hybrid       # engine global + camada fina no projeto
-#   flags extras: --update    --kiro-home <dir>  (default: $HOME/.kiro)
+#   flags extras: --update    --kiro-home <dir>  (default: $HOME/.kiro)    --version
 #   --stack dotnet|webforms|flutter|multi  (default: multi = instala tudo, sem podar — poda manual depois)
 #   --dry-run     mostra o que seria feito (copiado/removido/gravado) sem tocar em nada
 #   --uninstall   remove agents/skills instalados por este installer (a partir do
@@ -58,6 +58,7 @@ while [ $# -gt 0 ]; do
     --prune-unmanaged) PRUNE_UNMANAGED=1; shift;;
     --kiro-home) KIRO_HOME="${2:?dir}"; shift 2;;
     -h|--help) awk 'NR>1 && /^#/{sub(/^# ?/,""); print} NR>1 && !/^#/{exit}' "$0"; exit 0;;
+    --version) cat "$SRC/VERSION"; exit 0;;
     -*) echo "flag desconhecida: $1 (veja --help)"; exit 1;;
     *) DEST="$1"; shift;;
   esac
@@ -95,11 +96,11 @@ stack_guidelines() {
 # --update saber o que podar (A1), lembrar --stack sem precisar repassar (A2) e
 # --uninstall saber o que remover (inclusive scripts/*.sh — B1/I5, antes órfãos).
 # Migra transparentemente o formato antigo na primeira atualização.
-# uso: write_manifest <path> <version> <scope> <stack|@keep@> <"agentes"|@keep@> <"skills"|@keep@> <"scripts"|@keep@>
+# uso: write_manifest <path> <version> <scope> <stack|@keep@> <"agentes"|@keep@> <"skills"|@keep@> <"scripts"|@keep@> [<"hook_scripts"|@keep@>]
 write_manifest() {
-  python3 - "$1" "$2" "$3" "$4" "$5" "$6" "$7" << 'PY'
+  python3 - "$1" "$2" "$3" "$4" "$5" "$6" "$7" "${8:-@keep@}" << 'PY'
 import json, sys, os
-path, ver, scope, stack, agents, skills, scripts = sys.argv[1:8]
+path, ver, scope, stack, agents, skills, scripts, hook_scripts = sys.argv[1:9]
 data = {}
 if os.path.exists(path):
     try:
@@ -117,6 +118,8 @@ if skills != "@keep@":
     data["skills"] = skills.split()
 if scripts != "@keep@":
     data["scripts"] = scripts.split()
+if hook_scripts != "@keep@":
+    data["hook_scripts"] = hook_scripts.split()
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
     f.write("\n")
@@ -124,15 +127,18 @@ PY
 }
 
 manifest_field() {  # manifest_field <path> <campo> -- vazio se ausente/arquivo não-JSON (formato antigo)
+  # path/campo via sys.argv, nunca interpolados na string python: path com aspa
+  # simples (ex.: /Users/O'Brien) quebraria o literal — write_manifest já fazia certo.
   [ -f "$1" ] || return 0
   python3 -c "
-import json
+import json, sys
 try:
-    d = json.load(open('$1', encoding='utf-8'))
+    d = json.load(open(sys.argv[1], encoding='utf-8'))
 except Exception:
     raise SystemExit
-print(' '.join(d.get('$2', [])) if isinstance(d.get('$2'), list) else (d.get('$2') or ''))
-" 2>/dev/null || true
+v = d.get(sys.argv[2])
+print(' '.join(v) if isinstance(v, list) else (v or ''))
+" "$1" "$2" 2>/dev/null || true
 }
 
 array_contains() { local n="$1"; shift; [ $# -eq 0 ] && return 1; printf '%s\n' "$@" | grep -qxF "$n"; }
@@ -156,16 +162,26 @@ install_engine() {  # $1 = raiz .kiro de destino
     md="${a%.json}.md"                    # CLI lê .json, IDE lê .md (gen-agent-md.sh) — os dois vão juntos
     if [ -f "$SRC/agents/$md" ]; then _x cp -f "$SRC/agents/$md" "$K/agents/"; NEW_AGENTS+=("$md"); fi
   done
-  _x cp -rf "$SRC"/skills/*      "$K/skills/"
-  local NEW_SKILLS=(); for d in "$SRC"/skills/*/; do NEW_SKILLS+=("$(basename "$d")"); done
+  # remove-e-recopia por skill: cp -rf sozinho nunca apaga arquivo que MORREU dentro
+  # de uma skill no central (ex.: um script antigo em skills/X/scripts/) — ficaria
+  # órfão no destino para sempre.
+  local NEW_SKILLS=()
+  for d in "$SRC"/skills/*/; do
+    local sb; sb="$(basename "$d")"
+    [ -d "$K/skills/$sb" ] && _x rm -rf "$K/skills/$sb"
+    _x cp -rf "$d" "$K/skills/$sb"
+    NEW_SKILLS+=("$sb")
+  done
 
   # scripts referenciados por hooks EMBUTIDOS em agente (ex.: qa-blackbox-guard.sh em
   # agents/qa-blackbox.json) são dependência de carga, não opcionais como os
   # hooks/*.json de conveniência (esses continuam cópia manual, ver OPERACAO.md) —
-  # sempre vão junto da engine.
+  # sempre vão junto da engine, e entram no manifesto pra saírem no --uninstall.
+  local NEW_HOOK_SCRIPTS=()
   if [ -d "$SRC/hooks/scripts" ]; then
     _x mkdir -p "$K/hooks/scripts"
     _x cp -f "$SRC"/hooks/scripts/*.sh "$K/hooks/scripts/"
+    for f in "$SRC"/hooks/scripts/*.sh; do NEW_HOOK_SCRIPTS+=("$(basename "$f")"); done
   fi
 
   # scripts/{worktree,kiro-paths}.sh (B1) — worktree.sh é dependência de carga
@@ -229,7 +245,7 @@ install_engine() {  # $1 = raiz .kiro de destino
     done
   fi
 
-  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "$STACK" "${NEW_AGENTS[*]}" "${NEW_SKILLS[*]}" "${NEW_SCRIPTS[*]}"
+  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "$STACK" "${NEW_AGENTS[*]}" "${NEW_SKILLS[*]}" "${NEW_SCRIPTS[*]}" "${NEW_HOOK_SCRIPTS[*]}"
   _x rm -f "$K/$OLD_VERFILE"
   if [ -z "$STACK" ]; then
     echo "  ✔ engine v$VER → $K (agents + skills — todos os stacks; use --stack dotnet|webforms|flutter pra instalar só o necessário)"
@@ -286,13 +302,34 @@ install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default:
 uninstall_engine() {  # $1 = raiz .kiro instalada (engine) — remove só o que o manifesto lista
   local K="$1"
   if [ ! -f "$K/$VERFILE" ]; then echo "  ✘ sem manifesto em $K/$VERFILE — nada a desinstalar (ou instalação em formato legado; remova manualmente)"; return; fi
-  local AG SK SC; AG="$(manifest_field "$K/$VERFILE" agents)"; SK="$(manifest_field "$K/$VERFILE" skills)"; SC="$(manifest_field "$K/$VERFILE" scripts)"
+  local AG SK SC HS; AG="$(manifest_field "$K/$VERFILE" agents)"; SK="$(manifest_field "$K/$VERFILE" skills)"; SC="$(manifest_field "$K/$VERFILE" scripts)"; HS="$(manifest_field "$K/$VERFILE" hook_scripts)"
   for f in $AG; do if [ -e "$K/agents/$f" ]; then _x rm -f "$K/agents/$f"; echo "  ✂ removido: agents/$f"; fi; done
   for d in $SK; do if [ -e "$K/skills/$d" ]; then _x rm -rf "$K/skills/$d"; echo "  ✂ removido: skills/$d"; fi; done
   for f in $SC; do if [ -e "$K/scripts/$f" ]; then _x rm -f "$K/scripts/$f"; echo "  ✂ removido: scripts/$f"; fi; done
+  # manifesto pré-1.9 não tem hook_scripts — fallback: remover os que o CENTRAL atual
+  # conhece (melhor aproximação disponível; antes eles ficavam órfãos para sempre)
+  if [ -z "$HS" ] && [ -d "$K/hooks/scripts" ] && [ -d "$SRC/hooks/scripts" ]; then
+    for f in "$SRC"/hooks/scripts/*.sh; do HS="$HS $(basename "$f")"; done
+  fi
+  for f in $HS; do if [ -e "$K/hooks/scripts/$f" ]; then _x rm -f "$K/hooks/scripts/$f"; echo "  ✂ removido: hooks/scripts/$f"; fi; done
   _x rm -f "$K/.kiro-ai-team-paths"
   _x rm -f "$K/$VERFILE"
+  # diretórios que o installer criou e ficaram vazios não devem sobrar como ruído
+  for d in "$K/hooks/scripts" "$K/hooks" "$K/agents" "$K/skills" "$K/scripts"; do
+    [ -d "$d" ] && _x rmdir "$d" 2>/dev/null || true
+  done
   echo "  ✔ engine desinstalada de $K — steering/docs/AGENTS.md do projeto preservados (não são do time, são conteúdo do projeto)"
+}
+
+# uninstall_gitignore_lines <raiz do projeto> — remove APENAS as 3 linhas que
+# install_project_layer acrescentou; o resto do .gitignore é do projeto.
+uninstall_gitignore_lines() {
+  local P="$1" tmp
+  [ -f "$P/.gitignore" ] || return 0
+  if [ "$DRYRUN" = "1" ]; then echo "  (dry-run) remover entradas do time de $P/.gitignore"; return 0; fi
+  tmp="$(mktemp -t gitignore.XXXXXX)"
+  grep -vxF -e "docs/reviews/.gate-ledger" -e "docs/reviews/.merge-count" -e "docs/reviews/*-g1-run.log" "$P/.gitignore" > "$tmp" || true
+  mv "$tmp" "$P/.gitignore"
 }
 
 # uninstall_project_scripts <raiz .kiro do projeto> — escopo hybrid: a engine
@@ -331,10 +368,12 @@ echo "$MSG"
 
 if [ "$MODE" = "uninstall" ]; then
   case "$SCOPE" in
-    project) uninstall_engine "$DEST/.kiro";;
+    project) uninstall_engine "$DEST/.kiro"
+             uninstall_gitignore_lines "$DEST";;
     global)  uninstall_engine "$KIRO_HOME";;
     hybrid)  uninstall_engine "$KIRO_HOME"
-             uninstall_project_scripts "$DEST/.kiro";;
+             uninstall_project_scripts "$DEST/.kiro"
+             uninstall_gitignore_lines "$DEST";;
   esac
   echo "✔ concluído"
   exit 0

@@ -22,7 +22,7 @@ expect_exit() {
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-D="$TMP/main-repo"; mkdir -p "$D"; cd "$D"
+D="$TMP/main-repo"; mkdir -p "$D"; cd "$D" || exit 1
 git init -q -b main
 git config user.email t@t.com; git config user.name t
 echo x > README.md; git add -A; git commit -qm init
@@ -42,6 +42,30 @@ else
   fail "start: worktree/branch não criados — saída: $(cat "$TMP"/wt-out-1.log)"
 fi
 N=$((N+1))
+
+# =========================================================================
+# 1b) start é IDEMPOTENTE: segundo start reusa em vez de morrer com
+# 'branch já existe' (falso bloqueio na sessão do agente)
+# =========================================================================
+expect_exit 0 "start repetido: reusa worktree existente (idempotente)" -- \
+  bash "$WORKTREE_SH" start I3
+
+# =========================================================================
+# 1c) start --qa: worktree do QA em branch qa/pbi/<ID>, checkout SEM src/
+# =========================================================================
+mkdir -p "$WT/src" "$WT/docs"
+echo "código" > "$WT/src/app.cs"
+echo "doc" > "$WT/docs/leia.md"
+git -C "$WT" add -A; git -C "$WT" commit -qm "estrutura src+docs"
+WTQA="$D/../wt-I3-qa"
+expect_exit 0 "start --qa cria worktree QA" -- bash "$WORKTREE_SH" start I3 --qa
+if [ -d "$WTQA" ] && [ ! -e "$WTQA/src/app.cs" ] && [ -e "$WTQA/docs/leia.md" ]; then
+  pass "worktree QA sem src/ (sparse) mas com docs/ — isolamento black-box físico"
+else
+  fail "worktree QA: esperado docs/ presente e src/ ausente — src existe? $([ -e "$WTQA/src/app.cs" ] && echo sim || echo não)"
+fi
+N=$((N+1))
+expect_exit 0 "start --qa repetido: reusa (idempotente)" -- bash "$WORKTREE_SH" start I3 --qa
 
 # =========================================================================
 # 2) I3 — finish RECUSA remover com evidência de gate não commitada
@@ -65,6 +89,9 @@ expect_exit 0 "commit da evidência + branch mesclada -> finish aceita" -- \
   bash "$WORKTREE_SH" finish I3
 [ ! -d "$WT" ] && pass "worktree removido após finish bem-sucedido" \
   || fail "worktree ainda existe após finish bem-sucedido"
+N=$((N+1))
+[ ! -d "$WTQA" ] && pass "finish removeu também o worktree QA e a branch qa/pbi/I3" \
+  || fail "worktree QA sobrou após finish"
 N=$((N+1))
 
 echo

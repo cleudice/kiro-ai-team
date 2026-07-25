@@ -23,7 +23,7 @@ expect_exit() {
 # ---- fixture: repo git com main + docs/reviews + docs/tests-spec -----------
 mk_base_repo() {
   local dir="$1"
-  rm -rf "$dir"; mkdir -p "$dir"; cd "$dir"
+  rm -rf "$dir"; mkdir -p "$dir"; cd "$dir" || exit 1
   git init -q -b main
   git config user.email t@t.com; git config user.name t
   mkdir -p docs/reviews docs/tests-spec
@@ -63,14 +63,36 @@ printf 'G5: PASS\n' > "$TMP/g5-2.log"
 expect_exit 1 "G1 sem tests-spec (trilho feature) -> exit 1" -- \
   bash "$SCRIPT" PBI-2 slug-2 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-2.log"
 
-# G1 dispensado em manutenção sem tests-spec, resto verde
+# G1 em manutenção sem tests-spec: dispensa exige flag EXPLÍCITA — ausência de
+# arquivo sem --no-new-criteria REPROVA (ausência de evidência nunca vira
+# aprovação por omissão), com a flag passa e registra no gate.md
 D="$TMP/manutencao"; mk_base_repo "$D"
 printf 'R1.1 - PASS - ok\n' > "docs/reviews/PBI-3-verify.md"
 printf 'Veredicto: APROVADO\n' > "docs/reviews/PBI-3-spec.md"
 printf 'Veredicto: APROVADO\n' > "docs/reviews/PBI-3-code.md"
 printf 'G5: PASS\n' > "$TMP/g5-3.log"
-expect_exit 0 "manutenção sem critério novo dispensa G1 -> exit 0" -- \
+expect_exit 1 "manutenção sem tests-spec e SEM --no-new-criteria -> exit 1 (dispensa por omissão não existe mais)" -- \
   bash "$SCRIPT" PBI-3 slug-3 --repo "$D" --track manutencao --test-cmd "true" --g5-log "$TMP/g5-3.log"
+expect_exit 0 "manutenção sem critério novo COM --no-new-criteria -> exit 0" -- \
+  bash "$SCRIPT" PBI-3 slug-3 --repo "$D" --track manutencao --test-cmd "true" --g5-log "$TMP/g5-3.log" --no-new-criteria "bugfix sem critério de aceitação novo"
+if grep -q 'no-new-criteria' "$D/docs/reviews/PBI-3-gate.md" 2>/dev/null; then
+  pass "escape --no-new-criteria registrado em PBI-3-gate.md"
+else
+  fail "escape --no-new-criteria NÃO registrado em PBI-3-gate.md"
+fi
+
+# G2 BLOCKED: reprova por padrão; --allow-blocked "<motivo>" é o escape explícito
+D="$TMP/blocked"; mk_base_repo "$D"
+green_gates PBI-30 slug-30
+printf 'R1.1 - PASS - ok\nR1.2 - BLOCKED - sem ambiente IIS local\n' > "docs/reviews/PBI-30-verify.md"
+printf 'G5: PASS\n' > "$TMP/g5-30.log"
+expect_exit 1 "G2 com BLOCKED sem --allow-blocked -> exit 1" -- \
+  bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log"
+expect_exit 0 "G2 com BLOCKED e --allow-blocked -> exit 0" -- \
+  bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log" --allow-blocked "legado sem ambiente de smoke (IIS)"
+printf 'R1.1 - FAIL - quebrou\n' > "docs/reviews/PBI-30-verify.md"
+expect_exit 1 "G2 com FAIL reprova mesmo com --allow-blocked" -- \
+  bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log" --allow-blocked "x"
 
 # G1b: test-cmd falha
 D="$TMP/g1b-fail"; mk_base_repo "$D"
@@ -105,6 +127,30 @@ expect_exit 1 "sem --g5-log e sem --skip-g5 -> G5 bloqueia (exit 1)" -- \
 
 expect_exit 0 "--skip-g5 com motivo -> escape explícito, exit 0" -- \
   bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "sem ambiente de integração disponível"
+
+# gate.md de escape é IDEMPOTENTE: rodar 3x não empilha 3 blocos
+bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" >/dev/null 2>&1
+bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" >/dev/null 2>&1
+BLOCOS="$(grep -c '^<!-- check-gates:escapes -->' "$D/docs/reviews/PBI-7-gate.md" 2>/dev/null || echo 0)"
+if [ "$BLOCOS" -eq 1 ]; then pass "--skip-g5 repetido: gate.md com 1 bloco de escapes (idempotente)"
+else fail "--skip-g5 repetido: esperado 1 bloco em gate.md, veio $BLOCOS"; fi
+
+# gates reprovados NÃO gravam bloco de escape (escape de execução reprovada não é escape)
+D="$TMP/skip-rejeitado"; mk_base_repo "$D"
+green_gates PBI-31 slug-31
+rm "docs/reviews/PBI-31-code.md"
+bash "$SCRIPT" PBI-31 slug-31 --repo "$D" --test-cmd "true" --skip-g5 "motivo" >/dev/null 2>&1
+if grep -q '^<!-- check-gates:escapes -->' "$D/docs/reviews/PBI-31-gate.md" 2>/dev/null; then
+  fail "gates reprovados gravaram bloco de escape em gate.md (não deviam)"
+else pass "gates reprovados: sem bloco de escape em gate.md"; fi
+
+# reset-counter: zera o contador e grava marco em .last-audit
+D="$TMP/reset-counter"; mk_base_repo "$D"
+echo 7 > "$D/docs/reviews/.merge-count"
+expect_exit 0 "reset-counter -> exit 0" -- bash "$SCRIPT" reset-counter --repo "$D"
+if [ "$(cat "$D/docs/reviews/.merge-count")" = "0" ] && [ -s "$D/docs/reviews/.last-audit" ]; then
+  pass "reset-counter zerou .merge-count e gravou .last-audit (data+SHA)"
+else fail "reset-counter não zerou/gravou marco"; fi
 
 D="$TMP/g5-fail-log"; mk_base_repo "$D"
 green_gates PBI-8 slug-8
