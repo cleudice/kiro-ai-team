@@ -11,7 +11,7 @@ real, e registrar o resultado.
 
 ## Procedimento
 
-1. Instalar `hooks/_canary.json` num projeto de teste (`cp hooks/_canary.json <projeto>/.kiro/hooks/`) — **nunca instalar isto num projeto real via `install.sh`**, é só instrumentação.
+1. Instalar `hooks/diagnostics/_canary.json` num projeto de teste (`cp hooks/diagnostics/_canary.json <projeto>/.kiro/hooks/`) — **nunca instalar isto num projeto real via `install.sh`**, é só instrumentação.
 2. Abrir o painel "Agent Hooks" no IDE/CLI do Kiro e confirmar que os 4 hooks (`_canary-postfilesave`, `_canary-postfilecreate`, `_canary-sessionstart`, `_canary-posttaskexec`) aparecem listados e habilitados.
 3. Disparar cada trigger manualmente:
    - `PostFileSave`: salvar qualquer arquivo.

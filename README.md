@@ -26,10 +26,11 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
                     ┌── trilho FEATURE ──┐        ┌─ trilho MANUTENÇÃO ─┐
                     write-requirements    │        │ (pula spec formal)
                     write-design          │        │
-                    write-tasks ──────────┴────────┴─ write-tasks (mínimo)
+                    G0 review-spec draft  │        │
+                    write-tasks ──────────┴────────┴─ write-tasks (mínimo, orchestrator)
                                    ▼  .kiro/specs/<slug>/tasks.md
     task-preflight + "Start task" nativo (dev-* em worktree)   ∥   write-blackbox-tests (qa-blackbox,
-                                   ▼                        só lê a spec, nunca src/)
+                                   ▼                        worktree QA sem src/, só lê a spec)
                               verify-change (evidência observada)
                                    ▼
                     review-spec  +  review-code  (sessões limpas)
@@ -60,15 +61,19 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
 
 ## Instalação num projeto
 
+Pré-requisito: `python3` no PATH (o installer usa pro manifesto JSON e falha cedo com mensagem clara se ausente — no Git Bash do Windows, confirme antes).
+
 ```bash
 ./install.sh /caminho/do/projeto --stack dotnet   # recomendado: só o dev do stack deste repo
 ./install.sh /caminho/do/projeto                  # sem --stack: instala os 3 devs (dotnet/webforms/flutter)
 ./install.sh --scope global                       # engine em ~/.kiro (todos os repos)
 ./install.sh /caminho/do/projeto --scope hybrid   # engine global + camada do projeto
-./install.sh /caminho/do/projeto --update         # atualizar (lembra o --stack da instalação original; poda só o que O TIME instalou e saiu do central — agentes/skills próprios do projeto sobrevivem)
+./install.sh /caminho/do/projeto --update         # atualizar (lembra o --stack da instalação original; poda só o que O TIME instalou e saiu do central — agentes/skills próprios do projeto sobrevivem; --prune-unmanaged converge TUDO, use com cautela)
 ./install.sh /caminho/do/projeto --dry-run        # mostra o que seria feito, sem tocar em nada
-./install.sh /caminho/do/projeto --uninstall      # remove agents/skills do time (preserva steering/docs do projeto)
+./install.sh /caminho/do/projeto --uninstall      # remove agents/skills/hooks-scripts do time e limpa o que o installer pôs no .gitignore (preserva steering/docs do projeto)
 ```
+
+> Sobre os hooks: nenhum dos triggers (`PostFileSave`, `PostTaskExec`, `SessionStart`, `PostFileCreate`) foi verificado empiricamente contra um Kiro real ainda — coerência com a nossa própria filosofia ("autorrelato não conta") exige dizer isso aqui. Procedimento e status: [hooks/VERIFY.md](hooks/VERIFY.md). Trate a mecanização por hook como best-effort; os gates em disco não dependem dela.
 
 Steering e docs/ são sempre por projeto (steering do Kiro é por workspace). Detalhes, `--stack` e trade-offs: [OPERACAO.md](OPERACAO.md).
 

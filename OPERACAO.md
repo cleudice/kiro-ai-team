@@ -70,20 +70,23 @@ Ele roda `triage-issue` (busca no Jira/Azure Boards/GitHub via MCP, ou você col
 ### Passo 2 — Spec
 
 - **Trilho feature** → agente `spec-analyst`:
-  `write-requirements` (ele **pergunta antes de congelar** — responda e siga) → `write-design` → `write-tasks`.
-- **Trilho manutenção** → direto `write-tasks` mínimo a partir do brief.
+  `write-requirements` (ele **pergunta antes de congelar** — responda e siga) → `write-design` → **G0** (aba nova: `reviewer-spec` revisa requirements+design em modo draft e grava `docs/reviews/<PBI>-spec-draft.md`; reprovou = volta ao spec-analyst) → `write-tasks`.
+- **Trilho manutenção** → direto `write-tasks` mínimo a partir do brief — quem escreve é o **orchestrator** (o spec-analyst só atua no trilho feature).
 
 Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no final.
 
 ### Passo 3 — Execução (paralela, contextos separados)
 
 ```bash
-.kiro/scripts/worktree.sh start PROJ-1234
+.kiro/scripts/worktree.sh start PROJ-1234        # worktree do dev (idempotente — reusa se existir)
+.kiro/scripts/worktree.sh start PROJ-1234 --qa   # worktree do QA: branch qa/pbi/<ID>, checkout SEM src/
 ```
+
+O **dono único** deste passo é o orchestrator (ou você, manualmente) — o script é idempotente, então quem chegar em segundo reusa em vez de travar.
 
 - No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "prepare o worktree do PBI PROJ-1234" (`task-preflight`: confirma branch + build verde). O hook `preflight-branch` já avisa sozinho no início da sessão se a branch atual não bater com uma spec ativa.
 - No painel da spec (`.kiro/specs/<slug>/tasks.md`): clique **"Start task"** nativo do Kiro em cada item, na ordem — é o Kiro quem implementa. Após cada `[x]`: peça "checkpoint" ao mesmo agente (build/teste do módulo tocado). O hook `task-checkpoint` mecaniza isso quando instalado, mas é **experimental** até `hooks/VERIFY.md` confirmar o trigger `PostTaskExec` — não conte com ele sozinho.
-- "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele lê só a spec, nunca `src/` (reforçado por um hook próprio, `qa-blackbox-guard` — defesa em profundidade, não confie só nele) — não interfira nisso, é o mecanismo central.
+- "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele trabalha no **worktree QA** (`--qa`, checkout sem `src/` — isolamento físico, não só regra de prompt) e lê só a spec (reforço adicional: hook `qa-blackbox-guard`, defesa em profundidade que falha aberto) — não interfira nisso, é o mecanismo central. Antes do merge-gate, os testes da branch `qa/pbi/<ID>` são mesclados em `pbi/<ID>`.
 - Dev terminou → `verify-change` com evidência real (não aceite "pronto").
 
 ### Passo 4 — Qualidade e merge
@@ -99,6 +102,14 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 1. Responder as perguntas do spec-analyst.
 2. Decidir escalações (spec ambígua — o agente para e pergunta, por regra).
 3. Bater o martelo quando um gate reprova.
+
+### Estado do PBI em disco (`status:` no brief)
+
+A linha `status:` de `docs/issues/<ID>.md` é a única fonte pro orchestrator retomar um PBI numa sessão nova sem reconstruir por inspeção. Máquina de estados (definição canônica em `skills/triage-issue/SKILL.md`):
+
+`aberto` (triage feito) → `em-spec` (write-requirements iniciado) → `em-dev` (worktree criado) → `em-review` (verify entregue) → `merged` (merge-gate verde) → `done` (resolve-issue fechou no tracker)
+
+Quem executa cada etapa atualiza a linha; nunca pular direto pra `done`. É convenção mantida pelos agentes (nenhum script a valida) — se um PBI parecer "travado", confira se a linha ficou pra trás.
 
 ---
 
@@ -133,14 +144,18 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 ## 6. Problemas comuns
 
-| Sintoma                                | Causa provável                                         | Ação                                                                      |
-| -------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Agente "assumiu" algo na spec          | escalation-rules não carregado                         | conferir steering `inclusion: always`                                     |
-| qa-blackbox não consegue testar        | contrato público ausente no design                     | devolver ao spec-analyst (é feature do sistema, não bug)                  |
-| merge-gate reprovou com tudo "pronto"  | evidência não está em disco                            | gerar os arquivos de `docs/reviews/` — relato verbal não conta            |
-| G1b/G5 falham de um jeito confuso      | `tech.md` com comando de build/teste vazio/placeholder | preencher `tech.md`; `check-gates.sh` agora detecta e reprova cedo (M5)   |
-| Agentes não aparecem no seletor do IDE | só o `.json` foi instalado (formato da CLI)            | reinstalar/atualizar — `install.sh` agora sempre grava o `.md` junto (B1) |
-| MCP falha no Windows                   | quirks conhecidos (portproxy Bitbucket, wrapper SQLcl) | ver [mcp/README.md](mcp/README.md)                                        |
+| Sintoma                                | Causa provável                                            | Ação                                                                                |
+| -------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Agente "assumiu" algo na spec          | escalation-rules não carregado                            | conferir steering `inclusion: always`                                               |
+| qa-blackbox não consegue testar        | contrato público ausente no design                        | devolver ao spec-analyst (é feature do sistema, não bug)                            |
+| merge-gate reprovou com tudo "pronto"  | evidência não está em disco                               | gerar os arquivos de `docs/reviews/` — relato verbal não conta                      |
+| G1b/G5 falham de um jeito confuso      | `tech.md` com comando de build/teste vazio/placeholder    | preencher `tech.md`; `check-gates.sh` detecta placeholder e reprova cedo            |
+| Agentes não aparecem no seletor do IDE | só o `.json` foi instalado (formato da CLI)               | reinstalar/atualizar — `install.sh` sempre grava o `.md` junto                      |
+| MCP falha no Windows                   | quirks conhecidos (portproxy Bitbucket, wrapper SQLcl)    | ver [mcp/README.md](mcp/README.md)                                                  |
+| `install.sh` aborta logo no início     | `python3` ausente no PATH (dependência dura do manifesto) | instalar Python; no Git Bash do Windows, confirmar alias `python3`                  |
+| MCP recebe literal `${AZDO_ORG}`       | variável de ambiente não definida antes de abrir o IDE    | definir a env var no perfil do shell/sistema; ver [mcp/README.md](mcp/README.md)    |
+| `--update` não podou nada e avisou     | manifesto ausente ou em formato legado                    | rodar uma vez com `--prune-unmanaged` SE não houver agente/skill próprio do projeto |
+| Aviso "AUDITORIA DEVIDA" não some      | contador nunca rearmado após a auditoria                  | `check-gates.sh reset-counter` (passo final do audit-integration)                   |
 
 ---
 
@@ -210,7 +225,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 ### Spec (trilho feature)
 
-- **`write-requirements` → `write-design` → `write-tasks`** — cadeia executada pelo `spec-analyst`. `write-tasks` embute o bloco de gates G1–G5 no final do `tasks.md` — não pule esse passo mesmo no trilho manutenção. Toda task e todo gate leva o agente dono entre parênteses (`dev-dotnet`, `qa-blackbox`...) — é o que permite ao orchestrator rotear sem chutar.
+- **`write-requirements` → `write-design` → G0 → `write-tasks`** — cadeia do trilho feature, executada pelo `spec-analyst` (G0 = `review-spec` em modo draft, pelo `reviewer-spec` em aba nova, ANTES de congelar as tasks). No trilho manutenção, `write-tasks` mínimo é executado pelo **orchestrator** direto do brief. `write-tasks` embute o bloco de gates G1–G5 no final do `tasks.md` — não pule esse passo mesmo no trilho manutenção. Toda task e todo gate leva o agente dono entre parênteses (`dev-dotnet`, `qa-blackbox`...) — é o que permite ao orchestrator rotear sem chutar.
 
 ### Execução
 
@@ -226,13 +241,13 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
   ENGINE="$(bash .kiro/scripts/kiro-paths.sh)"   # resolve a raiz da engine — mesmo caminho no escopo project; aponta pra $KIRO_HOME em hybrid/global
   bash "$ENGINE/skills/merge-gate/scripts/check-gates.sh" <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
   ```
-  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o último commit de **código** de `pbi/<PBI>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam) — evidência aprovada num commit anterior não sobrevive a código novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
+  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito; os outros escapes são `--no-new-criteria "<motivo>"` (G1, manutenção) e `--allow-blocked "<motivo>"` (G2 BLOCKED) — ver §9. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o último commit de **código** de `pbi/<PBI>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam) — evidência aprovada num commit anterior não sobrevive a código novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` (reprovação registrada pelo orchestrator, ou bloco de escapes gravado pelo próprio script quando a execução verde usou dispensa). Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega — hoje ninguém o consome automaticamente; é insumo humano e é local por clone, como o contador).
 - **`resolve-issue`** — fecha o ciclo no tracker de origem. Dono: `orchestrator`, automático ao fim do `merge-gate`.
 
 ### Loops
 
 - **`audit-integration`** — ver ficha do `auditor`.
-- **`retrospective`** — converte falha recorrente (2ª vez) em UMA regra objetiva em `retro-learnings.md`. Máx. 1–2 regras por retro; se vale para todos os projetos, vira PR no `kiro-ai-team` central.
+- **`retrospective`** — converte falha recorrente (2ª vez) em UMA regra objetiva em `retro-learnings.md`. Máx. 1–2 regras por retro; se vale para todos os projetos, vira PR no `kiro-ai-team` central. Donos: `orchestrator` (que observa reprovação/escalação repetida no dia a dia) e `auditor` (padrões achados na auditoria).
 
 ---
 
@@ -240,17 +255,23 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 > Fonte canônica: `steering-base/quality-gates.md` (injetado em toda sessão). A tabela abaixo é um resumo derivado — em divergência, vale o quality-gates.md + o comportamento de `check-gates.sh`.
 
-| Gate | Confere                                                   | Arquivo-evidência                                                                 | Quem produz a evidência | Bloqueante?                                                           |
-| ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
-| G1   | testes black-box existem e passam                         | `docs/tests-spec/<slug>.md` + execução (`--test-cmd`)                             | `qa-blackbox`           | sempre (dispensável só em manutenção sem critério novo)               |
-| G2   | comportamento real, sem FAIL/BLOCKED em linha de critério | `docs/reviews/<PBI>-verify.md` = `Commit: <sha>` + linhas de critério             | dev via `verify-change` | sempre                                                                |
-| G3   | diff cumpre a spec                                        | `docs/reviews/<PBI>-spec.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-spec`         | sempre                                                                |
-| G4   | qualidade técnica                                         | `docs/reviews/<PBI>-code.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-code`         | sempre                                                                |
-| G5   | regressão da integração                                   | log com linhas `G5: PASS` + `Commit: <sha>` (`--g5-log`)                          | `merge-gate`            | sim, por padrão — `--skip-g5 "<motivo>"` é o único escape, registrado |
+| Gate | Confere                                                   | Arquivo-evidência                                                                 | Quem produz a evidência                                              | Bloqueante?                                                                                                                              |
+| ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| G1   | testes black-box existem e passam                         | `docs/tests-spec/<slug>.md` + execução (`--test-cmd`)                             | `qa-blackbox`                                                        | sempre (em manutenção sem critério novo, dispensa EXPLÍCITA via `--no-new-criteria "<motivo>"` — ausência de arquivo sem a flag reprova) |
+| G2   | comportamento real, sem FAIL/BLOCKED em linha de critério | `docs/reviews/<PBI>-verify.md` = `Commit: <sha>` + linhas de critério             | dev via `verify-change` (qa-blackbox se o PBI não tem task de dev-*) | sempre (`BLOCKED` sem ambiente de smoke: escape `--allow-blocked "<motivo>"`)                                                            |
+| G3   | diff cumpre a spec                                        | `docs/reviews/<PBI>-spec.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-spec`                                                      | sempre                                                                                                                                   |
+| G4   | qualidade técnica                                         | `docs/reviews/<PBI>-code.md` = `Veredicto: APROVADO` (1ª linha) + `Commit: <sha>` | `reviewer-code`                                                      | sempre                                                                                                                                   |
+| G5   | regressão da integração                                   | log com linhas `G5: PASS` + `Commit: <sha>` (`--g5-log`)                          | `merge-gate`                                                         | sim, por padrão — `--skip-g5 "<motivo>"` é o único escape, registrado                                                                    |
 
-`Commit: <sha>` precisa ser (prefixo d)o HEAD atual de `pbi/<PBI>` (B2) — sem branch `pbi/<PBI>` resolvível (uso manual/exemplo fora de um PBI real), a checagem é pulada.
+`Commit: <sha>` precisa ser (prefixo d)o **último commit de código** de `pbi/<PBI>` — o mais recente que toca algo fora de `docs/reviews/**` e `docs/tests-spec/**`; commitar a própria evidência depois da revisão não invalida o vínculo, código novo sim. Sem branch `pbi/<PBI>` resolvível (uso manual/exemplo fora de um PBI real), a checagem é pulada.
 
-Script único, determinístico: `skills/merge-gate/scripts/check-gates.sh`. Reprovação em qualquer G devolve ao dono da coluna 3 — o `merge-gate` não julga, só confere. `bump-counter` (rodado após merge efetivo) agenda `audit-integration` a cada 5.
+Antes dos gates numerados existe o **G0** (trilho feature): `docs/reviews/<PBI>-spec-draft.md` com `Veredicto: APROVADO` — revisão adversarial da spec pelo `reviewer-spec` em modo draft, antes de `write-tasks` congelar. Nesta versão o `check-gates.sh` só avisa quando ausente (vira bloqueante na 2.0); sem ele, a spec seria a única etapa do ciclo aprovada por quem a escreveu.
+
+Escapes explícitos (todos registrados por `check-gates.sh` em `docs/reviews/<PBI>-gate.md`, num bloco idempotente entre marcadores, e só quando a execução termina verde): `--skip-g5 "<motivo>"` (sem ambiente de integração), `--no-new-criteria "<motivo>"` (manutenção sem critério de aceitação novo — sem a flag, G1 reprova por ausência de `docs/tests-spec/<slug>.md`), `--allow-blocked "<motivo>"` (G2 com `BLOCKED` legítimo por falta de ambiente de smoke — ex.: WebForms/IIS sem instância local).
+
+**Por que mecanizar não basta (defesa em profundidade)**: os hooks por-agente (`qa-blackbox-guard.sh`, `readonly-guard.sh`) tentam bloquear leitura/escrita de `src/` fora do papel, mas o contrato exato de payload que o Kiro passa a um hook `preToolUse` não é documentado publicamente — os scripts falham ABERTO (não bloqueiam) quando não reconhecem o formato. Eles reforçam a regra; a fonte da verdade continua sendo o prompt do agente + a revisão adversarial em sessão limpa. O isolamento físico do qa-blackbox (worktree `--qa` sem `src/`) é a única barreira estrutural de verdade.
+
+Script único, determinístico: `skills/merge-gate/scripts/check-gates.sh`. Reprovação em qualquer G devolve ao dono da coluna 3 — o `merge-gate` não julga, só confere. `bump-counter` (rodado após merge efetivo) agenda `audit-integration` a cada 5; `reset-counter` (rodado pelo auditor ao fim da auditoria) zera o contador e grava o marco (data+SHA) em `docs/reviews/.last-audit` — é esse marco que delimita a janela da próxima auditoria.
 
 ---
 
@@ -272,23 +293,24 @@ Esses arquivos valem **mesmo sem você invocar skill nenhuma** — é por isso q
 
 ## 11. Ciclo de vida dos artefatos
 
-| Artefato                                             | Quem cria                                                           | Quando              | Quem atualiza                                                                                                                                      | Quem lê                                 |
-| ---------------------------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `~/.kiro/steering/principios.md`                     | installer (template) → **você edita**                               | 1x por máquina      | só você; installer nunca sobrescreve                                                                                                               | todos os agentes, sempre                |
-| `steering/escalation-rules\|quality-gates\|workflow` | installer                                                           | install/update      | **só via update do kiro-ai-team** (regra do time; mudança local = PR no central)                                                                   | todos, sempre                           |
-| `steering/guidelines/*`                              | installer                                                           | install/update      | via update do kiro-ai-team                                                                                                                         | agente do stack, por `fileMatch`        |
-| `steering/product.md`                                | template vazio → **humano escreve**                                 | onboarding do repo  | humano, quando o produto muda                                                                                                                      | todos, sempre                           |
-| `steering/tech.md`                                   | template → `reverse-engineer-project` preenche → **humano confere** | onboarding          | humano, quando o stack/build muda                                                                                                                  | todos, sempre (build/test cmds!)        |
-| `steering/structure.md`                              | template → `reverse-engineer-project` preenche                      | onboarding          | humano ou re-run do eixo                                                                                                                           | todos, sempre                           |
-| `steering/retro-learnings.md`                        | template vazio                                                      | onboarding          | **só a skill `retrospective`** (nunca pré-popular)                                                                                                 | todos, sempre                           |
-| `docs/context/*` (8 eixos)                           | `reverse-engineer-project`                                          | onboarding          | re-run **por eixo** quando `audit-integration` detectar drift                                                                                      | por eixo — ver §12                      |
-| `.kiro/specs/<slug>/requirements.md`                 | `write-requirements` (spec-analyst)                                 | por PBI feature     | congelado; mudança só via nova rodada com humano + changelog no rodapé                                                                             | qa-blackbox, reviewer-spec, devs        |
-| `.kiro/specs/<slug>/design.md`                       | `write-design`                                                      | por PBI feature     | idem (decisões novas viram entrada, não edição silenciosa)                                                                                         | qa-blackbox (contratos), devs           |
-| `.kiro/specs/<slug>/tasks.md`                        | `write-tasks`                                                       | por PBI (2 trilhos) | execução é o "Start task" nativo do Kiro (marca `[x]`); `task-preflight`/hooks cercam com pré-flight/checkpoint; escopo não muda sem voltar à spec | dev (via nativo), orchestrator          |
-| `docs/issues/<ID>.md`                                | `triage-issue`/`triage-crash`/`audit-integration`                   | entrada de trabalho | `resolve-issue` anexa `## Resolução`                                                                                                               | orchestrator, spec-analyst              |
-| `docs/tests-spec/<slug>.md`                          | `write-blackbox-tests` (qa-blackbox)                                | por PBI             | qa-blackbox apenas                                                                                                                                 | merge-gate (G1), reviewer-spec          |
-| `docs/reviews/<PBI>-{verify,spec,code,gate}.md`      | verify-change / revisores / merge-gate                              | por PBI             | ninguém (é registro, não documento vivo)                                                                                                           | merge-gate, auditor, humano             |
-| `docs/reviews/.gate-ledger`                          | `check-gates.sh`                                                    | toda execução       | ninguém (append-only)                                                                                                                              | humano (decidir se algum gate compensa) |
+| Artefato                                             | Quem cria                                                           | Quando                | Quem atualiza                                                                                                                                      | Quem lê                                 |
+| ---------------------------------------------------- | ------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `~/.kiro/steering/principios.md`                     | installer (template) → **você edita**                               | 1x por máquina        | só você; installer nunca sobrescreve                                                                                                               | todos os agentes, sempre                |
+| `steering/escalation-rules\|quality-gates\|workflow` | installer                                                           | install/update        | **só via update do kiro-ai-team** (regra do time; mudança local = PR no central)                                                                   | todos, sempre                           |
+| `steering/guidelines/*`                              | installer                                                           | install/update        | via update do kiro-ai-team                                                                                                                         | agente do stack, por `fileMatch`        |
+| `steering/product.md`                                | template vazio → **humano escreve**                                 | onboarding do repo    | humano, quando o produto muda                                                                                                                      | todos, sempre                           |
+| `steering/tech.md`                                   | template → `reverse-engineer-project` preenche → **humano confere** | onboarding            | humano, quando o stack/build muda                                                                                                                  | todos, sempre (build/test cmds!)        |
+| `steering/structure.md`                              | template → `reverse-engineer-project` preenche                      | onboarding            | humano ou re-run do eixo                                                                                                                           | todos, sempre                           |
+| `steering/retro-learnings.md`                        | template vazio                                                      | onboarding            | **só a skill `retrospective`** (nunca pré-popular)                                                                                                 | todos, sempre                           |
+| `docs/context/*` (8 eixos)                           | `reverse-engineer-project`                                          | onboarding            | re-run **por eixo** quando `audit-integration` detectar drift                                                                                      | por eixo — ver §12                      |
+| `.kiro/specs/<slug>/requirements.md`                 | `write-requirements` (spec-analyst)                                 | por PBI feature       | congelado; mudança só via nova rodada com humano + changelog no rodapé                                                                             | qa-blackbox, reviewer-spec, devs        |
+| `.kiro/specs/<slug>/design.md`                       | `write-design`                                                      | por PBI feature       | idem (decisões novas viram entrada, não edição silenciosa)                                                                                         | qa-blackbox (contratos), devs           |
+| `.kiro/specs/<slug>/tasks.md`                        | `write-tasks`                                                       | por PBI (2 trilhos)   | execução é o "Start task" nativo do Kiro (marca `[x]`); `task-preflight`/hooks cercam com pré-flight/checkpoint; escopo não muda sem voltar à spec | dev (via nativo), orchestrator          |
+| `docs/issues/<ID>.md`                                | `triage-issue`/`triage-crash`/`audit-integration`                   | entrada de trabalho   | a linha `status:` avança a cada etapa (quem executa atualiza — ver §2); `resolve-issue` anexa `## Resolução`                                       | orchestrator (estado), spec-analyst     |
+| `docs/tests-spec/<slug>.md`                          | `write-blackbox-tests` (qa-blackbox)                                | por PBI               | qa-blackbox apenas                                                                                                                                 | merge-gate (G1), reviewer-spec          |
+| `docs/reviews/<PBI>-{verify,spec,code,gate}.md`      | verify-change / revisores / merge-gate                              | por PBI               | ninguém (é registro, não documento vivo)                                                                                                           | merge-gate, auditor, humano             |
+| `docs/reviews/.gate-ledger`                          | `check-gates.sh`                                                    | toda execução         | ninguém (append-only; local por clone — gitignorado)                                                                                               | humano (decidir se algum gate compensa) |
+| `docs/reviews/.last-audit`                           | `check-gates.sh reset-counter` (auditor)                            | fim de cada auditoria | sobrescrito a cada auditoria (data + SHA); **versionado** — é política de equipe, não telemetria local                                             | audit-integration (janela da próxima)   |
 
 Regra transversal: **installer sobrescreve o que é do time, nunca toca o que é do projeto/pessoal** (templates copiados só se ausentes; poda de agents/skills nunca toca steering/docs).
 
@@ -336,10 +358,19 @@ Quirks conhecidos consolidados: fileMatch global não injeta; symlink em `~/.kir
 ## 15. Fluxo completo em uma linha por etapa
 
 ```
-triage-issue/triage-crash → write-requirements → write-design → write-tasks
-  → task-preflight + Start task (nativo) ∥ write-blackbox-tests
+triage-issue/triage-crash → write-requirements → write-design → G0 (review-spec draft) → write-tasks
+  → task-preflight + Start task (nativo) ∥ write-blackbox-tests (worktree QA, sem src/)
   → verify-change → review-spec + review-code → merge-gate → resolve-issue
-  → (a cada 5 merges) audit-integration → (falha repetida) retrospective
+  → (a cada 5 merges) audit-integration + reset-counter → (falha repetida) retrospective
 ```
+
+## 16. Upgrade entre versões do kiro-ai-team
+
+`install.sh <repo> --update` cobre agents/skills/scripts/hooks-scripts e poda pelo manifesto. O que o update **não** faz sozinho e exige ação manual:
+
+- **`hooks/*.json` copiados pra `.kiro/hooks/`** — o installer nunca os instala (são opcionais); se você copiou algum, **recopie após o update** (os de 1.6 apontavam caminhos que 1.7 corrigiu; 1.9 introduziu `hooks/scripts/lib.sh`, que os scripts novos carregam — o installer o instala, mas JSONs antigos podem chamar scripts antigos).
+- **MCP** — fragmentos são sempre mesclados à mão; releia `mcp/README.md` após updates maiores.
+- **1.8 → 1.9 em específico**: (a) G1 no trilho manutenção agora exige `--no-new-criteria "<motivo>"` quando não há `docs/tests-spec/<slug>.md` — pipelines/atalhos que contavam com a dispensa implícita passam a reprovar; (b) o qa-blackbox passou a trabalhar em worktree próprio (`worktree.sh start <PBI> --qa`); (c) manifesto ganhou o campo `hook_scripts` (o `--uninstall` de instalação pré-1.9 remove os hook-scripts pelo conjunto do central atual, melhor aproximação disponível); (d) surgiu `check-gates.sh reset-counter` — inclua no fim de cada auditoria.
+- Migração pré-1.5 (`agent-skills`): `docs/archive/MIGRATION-v1.md`.
 
 Ver também: [README](README.md) (arquitetura e por quê) · [mcp/README.md](mcp/README.md) (fragmentos MCP) · [hooks/VERIFY.md](hooks/VERIFY.md) (verificação empírica dos triggers de hook) · `docs/archive/` (documentos históricos).

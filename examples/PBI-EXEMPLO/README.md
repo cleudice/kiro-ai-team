@@ -1,6 +1,6 @@
 # PBI-EXEMPLO — ciclo completo em miniatura
 
-Fixture ilustrativa (M6): não é código real de nenhum stack, é só o esqueleto de
+Fixture ilustrativa: não é código real de nenhum stack, é só o esqueleto de
 artefatos que o ciclo do kiro-ai-team produz — brief, tasks, evidência dos 5
 gates — pra você ensaiar o fluxo e ver `check-gates.sh` passar de verdade antes
 do primeiro PBI num repo real.

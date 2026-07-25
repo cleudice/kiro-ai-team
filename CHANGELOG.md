@@ -2,9 +2,50 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+> **IDs de auditoria** (`B1`, `M5`, `I4`, `A6`, `P0-1`...): rótulos internos das auditorias que precederam a 1.7/1.8 — o contexto de cada um está nas entradas de versão abaixo. A partir da 1.9 eles ficam restritos a comentários de script e a este arquivo; documentos de usuário e steering não os usam mais.
+
 ## [Unreleased]
 
-Sem mudanças pendentes desde o `[1.8.0]` abaixo.
+Sem mudanças pendentes desde o `[1.9.0]` abaixo.
+
+## [1.9.0] — 2026-07-25
+
+Release da auditoria "padrão ouro": fecha as classes de fragilidade concentradas na _entrada_ do ciclo (spec sem revisão adversarial, G1 dispensável por omissão), no _isolamento_ (black-box sustentado só por prompt) e nos _hooks_ (290 linhas de shell sem um único teste comportamental).
+
+### Adicionado
+
+- **G0 — revisão adversarial da spec** (`review-spec` em modo draft, `docs/reviews/<PBI>-spec-draft.md`): a spec era a única etapa do ciclo aprovada por quem a escreveu — violava o princípio fundador ("nenhum agente aprova o próprio trabalho") justamente na etapa mais cara de errar. Nesta versão `check-gates.sh` avisa quando ausente (trilho feature); vira bloqueante na 2.0.
+- **Isolamento físico do qa-blackbox** — `worktree.sh start <PBI> --qa` cria worktree próprio (branch `qa/pbi/<ID>`) com sparse-checkout **sem `src/`**: a regra central do sistema deixa de depender de prompt + guard que falha aberto e vira invariante estrutural.
+- **`--no-new-criteria "<motivo>"`** — a dispensa do G1 no trilho manutenção era inferida da AUSÊNCIA de `docs/tests-spec/<slug>.md`: o único ponto do sistema onde falta de evidência virava aprovação, e a forma de burlar era não criar um arquivo. Agora a dispensa é flag explícita e registrada; ausência sem flag reprova.
+- **`--allow-blocked "<motivo>"`** — G2 com `BLOCKED` legítimo (legado sem ambiente de smoke, ex.: WebForms/IIS) tinha um beco sem saída documentado e sem escape; agora tem o escape explícito, análogo ao `--skip-g5`.
+- **`check-gates.sh reset-counter`** — zera o contador de merges e grava o marco (data+SHA) em `docs/reviews/.last-audit`; sem isso o aviso "AUDITORIA DEVIDA" disparava para sempre a partir do 5º merge (o rearme era um `echo 0` manual que ninguém tinha como passo), e a "janela desde a última auditoria" do `audit-integration` não tinha referência em disco.
+- **`readonly-guard.sh`** embutido em orchestrator/reviewer-spec/reviewer-code/auditor (`preToolUse`/`fs_write`): a assimetria de mecanização protegia só a leitura do qa-blackbox enquanto 4 papéis "não corrigem nada" tinham `write` amplo vigiado só por prompt. Mesmo contrato honesto do qa-guard: falha aberto.
+- **`tests/test-hooks.sh`** — 26 casos cobrindo os 6 scripts de hook + guards + `lib.sh` (antes: zero teste comportamental em 290 linhas com histórico de bug). O teste já pagou: expôs loop infinito no `find_up` com path relativo.
+- **`tests/test-examples.sh`** — executa a promessa literal do README do PBI-EXEMPLO (`GATES OK`, exit 0) e valida a rastreabilidade tripla R#.# do PBI-FEATURE; os exemplos eram fixtures executáveis que nenhum CI executava (e já estiveram quebrados sem ninguém notar, ver 1.7.0).
+- **`hooks/scripts/lib.sh`** — `newest_of`/`resolve_file`/`find_up`/`unfilled`/`require_tool`/`cd_repo_root` únicos; antes duplicados byte-a-byte nos dois format-* com `find_up` de MESMO nome e semântica divergente (um devolvia arquivo, outro diretório).
+- **CI**: job `windows-latest` (o histórico de bugs do repo é majoritariamente Windows e nenhum CI cobria), `shellcheck -S warning` (3 bugs P0/P1 do histórico eram exatamente da classe que `-S error` deixa passar), `workflow_dispatch`, execução dos exemplos via selftest.
+- **Processo**: `CONTRIBUTING.md` (as regras que o CI impõe, em prosa), `SECURITY.md`, templates de issue/PR (no formato de brief do próprio produto), `dependabot.yml`. Tags retroativas `v1.6.0`/`v1.6.1` criadas — o README promete "versionado por tag" e as duas maiores versões do CHANGELOG não tinham tag.
+
+### Corrigido
+
+- **Contradição doc×código sobrevivente da 1.7.0**: `OPERACAO.md` §9 e o cabeçalho do próprio `check-gates.sh` ainda diziam "HEAD atual" onde o código compara com o **último commit de código** (exclui `docs/reviews`/`docs/tests-spec`). O texto dos dois agora descreve o algoritmo real; a linha equivalente nos SKILL.md de review ganhou marcador de sincronia conferido pelo selftest.
+- **`check-oracle.sh` reprovava todo package PL/SQL**: o regex de DDL casava `\b(CREATE)\b` — logo TODO `CREATE OR REPLACE PACKAGE/PROCEDURE` exigia rollback ao lado, hook vermelho em todo save (aviso constante é aviso ignorado — a mesma lição do I7, aplicada uma regra acima). Agora só DDL estrutural (DROP/TRUNCATE/ALTER TABLE/CREATE TABLE|INDEX|SEQUENCE); com fixtures de verdadeiro-positivo e verdadeiro-negativo.
+- **`hooks/scripts/*.sh` órfãos no `--uninstall`**: eram copiados mas nunca registrados no manifesto — sobreviviam à desinstalação para sempre (mesma classe do I5, um nível abaixo). Novo campo `hook_scripts` no manifesto; instalação pré-1.9 remove pelo conjunto do central atual (melhor aproximação).
+- **`worktree.sh start` não idempotente**: com 3 donos declarados na doc (orchestrator, qa, humano), quem chegasse em segundo morria com "branch já existe" sob `set -e` — falso bloqueio na sessão do agente. Agora reusa; dono único documentado (orchestrator).
+- **`find_up` em loop infinito com path relativo** (`dirname "." == "."`) — pré-existente nos dois format-*, exposto pelo teste novo; o dir agora é canonicalizado.
+- **Hooks de format sem guarda de toolchain**: máquina sem `dotnet`/`dart` (ou repo multi-stack com hook do stack errado) ficava com hook vermelho em TODO save; agora `require_tool` avisa e sai 0. `KIRO_HOOK_BUILD=0` desliga o build por save em solução onde o incremental custa caro. Todos os scripts de hook agora fazem `cd` pra raiz do repo (dependiam de cwd == raiz do workspace sem garantia nenhuma).
+- **`--skip-g5` gravava `<PBI>-gate.md` por append**: 3 execuções = 3 blocos idênticos empilhados, e gravava mesmo com outros gates reprovados (contradizendo a doc "só quando recusado"). Agora: bloco único idempotente entre marcadores, gravado só quando a execução termina verde, cobrindo os 3 escapes.
+- **`grep -ozE` GNU-only no qa-blackbox-guard**: em macOS/BSD falhava engolido por `2>/dev/null` e o guard ficava inerte — trocado por `grep -oE` portátil. `manifest_field`/selftest interpolavam path dentro de string python (path com `'` quebrava); agora `sys.argv`, como `write_manifest` já fazia.
+- **`cp -rf` de skills nunca removia arquivo morto** dentro de uma skill no destino — agora remove-e-recopia por skill. Uninstall também limpa as 3 linhas que o installer adicionou ao `.gitignore` e os diretórios vazios.
+- **`task-checkpoint.sh` acoplado ao literal `^- Build:`** do template — bullet trocado (`*`) quebrava silencioso com mensagem errada; o marcador de lista agora é tolerante.
+- **Vocabulário de trilho unificado**: `tasks-minimas` → `manutencao` (o brief do PBI-EXEMPLO — "o modelo que se copia" — ensinava o valor que nenhuma skill reconhece, e ele também não tinha a linha `status:` introduzida na 1.8.0; mesma classe de bug de fixture da 1.7.0, reintroduzida por outro caminho).
+
+### Alterado
+
+- **Donos de skill corrigidos no fluxo**: `write-tasks` no trilho manutenção é do **orchestrator** (o trilho mais frequente tinha um passo cujo único dono declarado era o spec-analyst, definido como "só trilho feature"); `retrospective` também no orchestrator (os gatilhos — reprovação/escalação repetida — são eventos que ELE observa, não o auditor).
+- **`steering-base/quality-gates.md` em dieta**: é `inclusion: always` (custa tokens em toda sessão de todo agente) e carregava justificativa de design em vez de regra — o racional da mecanização/B2 migrou pra `OPERACAO.md` §9; os IDs de auditoria saíram dos docs de usuário (legenda no topo deste arquivo). Dedup: a regra de build/env agora vive só em `escalation-rules.md` (era quase-verbatim nos dois).
+- **`OPERACAO.md`**: documenta a máquina de estados `status:` (a feature-título da 1.8.0 nunca tinha chegado ao doc operacional), a exceção do dono do G2, os escapes novos, o `.last-audit`, troubleshooting de instalação e a nova seção §16 (upgrade entre versões — o que `--update` NÃO faz sozinho). `README.md`: pré-requisito `python3`, `--prune-unmanaged`, e a ressalva honesta de que os triggers de hook seguem não verificados (`hooks/VERIFY.md`) — a página de entrada silenciava a maior incerteza conhecida do produto.
+- **`selftest.sh`**: link-check estendido (CHANGELOG, VERIFY, CONTRIBUTING, SECURITY, exemplos, SKILL.md, agents/*.md), allowlist de triggers de hook (typo de trigger = hook que nunca dispara, silencioso), check de sincronia do bloco compartilhado dos reviews, e as 2 suítes novas. `hooks/_canary.json` movido pra `hooks/diagnostics/` (instrumentação não fica no glob que o usuário copia).
 
 ## [1.8.0] — 2026-07-25
 
@@ -150,3 +191,11 @@ Estado do repo na auditoria de ecossistema que deu origem a este changelog. Ver 
 - `scripts/worktree.sh` tem fallback de branch principal morto (`|| echo main` nunca dispara).
 - G5 (regressão) não bloqueia o exit code por default.
 - `install.sh --update` não poda skills/agentes removidos de versões anteriores nem memoriza `--scope`/`--stack`.
+
+[Unreleased]: https://github.com/cleudice/kiro-ai-team/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/cleudice/kiro-ai-team/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/cleudice/kiro-ai-team/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/cleudice/kiro-ai-team/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/cleudice/kiro-ai-team/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/cleudice/kiro-ai-team/compare/v1.5.1...v1.6.0
+[1.5.1]: https://github.com/cleudice/kiro-ai-team/releases/tag/v1.5.1

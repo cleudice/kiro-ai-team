@@ -1,6 +1,7 @@
 # Desconto arredonda errado acima de R$100
 
 origem: github id: EXEMPLO-1 tipo: manutencao
+status: merged
 repo(s): app-exemplo vinculado a: —
 
 ## Contexto
@@ -23,4 +24,4 @@ Serviço de cálculo de carrinho, função de aplicação de desconto percentual
 
 Nenhuma reportada antes.
 
-## Trilho recomendado: tasks-minimas
+## Trilho recomendado: manutencao
