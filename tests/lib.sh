@@ -5,6 +5,7 @@
 # FAIL=0; N=0 ANTES de sourcear; as funções só mexem nesses globais.
 
 pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
+# shellcheck disable=SC2034  # FAIL é global da suíte que sourceia (inicializado lá)
 fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
 
 # expect_exit <esperado> <descrição> -- <comando...>

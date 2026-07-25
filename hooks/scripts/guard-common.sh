@@ -60,4 +60,8 @@ guard_path_is_code() {
 }
 
 # guard_code_dirs_label — rótulo humano dos diretórios protegidos (ex.: "src/" ou "lib/ web/")
-guard_code_dirs_label() { printf '%s/ ' $(code_dirs) | sed 's/ $//'; }
+guard_code_dirs_label() {
+  local d out=""
+  for d in $(code_dirs); do out="$out$d/ "; done
+  printf '%s' "${out% }"
+}
