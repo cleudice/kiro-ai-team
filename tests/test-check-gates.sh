@@ -271,6 +271,62 @@ printf 'G5: PASS\nCommit: %s\n' "$SHA32" > "$TMP/g5-32.log"
 expect_exit 0 "B2+I3: commit só de docs/reviews|tests-spec não invalida a evidência -> exit 0" -- \
   bash -c "cd '$D' && bash '$SCRIPT' PBI-32 slug-32 --test-cmd true --g5-log '$TMP/g5-32.log'"
 
+# =========================================================================
+# 9) ledger sobrevive ao worktree — gravado no repo PRINCIPAL (mesma regra do
+#    bump-counter, I4): antes era escrito no worktree do PBI, que 'worktree.sh
+#    finish' apaga — o dado de auto-avaliação do processo nunca sobrevivia.
+# =========================================================================
+D="$TMP/ledger-wt"; mk_base_repo "$D"
+WTL="$TMP/wt-PBI-40"
+git -C "$D" worktree add -q -b pbi/PBI-40 "$WTL" main >/dev/null 2>&1
+mkdir -p "$WTL/docs/reviews" "$WTL/docs/tests-spec"
+( cd "$WTL" && green_gates PBI-40 slug-40 )
+SHA40="$(git -C "$D" rev-parse pbi/PBI-40)"
+printf 'G5: PASS\nCommit: %s\n' "$SHA40" > "$TMP/g5-40.log"
+bash -c "cd '$D' && bash '$SCRIPT' PBI-40 slug-40 --test-cmd true --g5-log '$TMP/g5-40.log'" >/dev/null
+if [ -f "$D/docs/reviews/.gate-ledger" ] && grep -q 'PBI-40' "$D/docs/reviews/.gate-ledger"; then
+  pass "ledger gravado no repo PRINCIPAL (sobrevive ao finish do worktree)"
+else
+  fail "ledger não foi gravado no repo principal"
+fi
+N=$((N+1))
+[ ! -f "$WTL/docs/reviews/.gate-ledger" ] && pass "ledger NÃO gravado no worktree efêmero" \
+  || fail "ledger gravado no worktree por engano (seria apagado pelo finish)"
+N=$((N+1))
+
+# =========================================================================
+# 10) G1b em worktree recém-criado — docs/reviews/ não vem no worktree (git não
+#     versiona dir vazio); sem o mkdir antes do redirect do log, a suíte VERDE
+#     era reportada como "G1b suíte FALHOU" (diagnóstico enganoso)
+# =========================================================================
+D="$TMP/g1b-fresh"; mk_base_repo "$D"
+mkdir -p docs/tests-spec; echo "# tests spec" > docs/tests-spec/slug-41.md
+git add -A; git commit -qm "spec de testes"
+WTF="$TMP/wt-PBI-41"
+git -C "$D" worktree add -q -b pbi/PBI-41 "$WTF" main >/dev/null 2>&1
+[ ! -d "$WTF/docs/reviews" ] || rmdir "$WTF/docs/reviews" 2>/dev/null
+OUT41="$(cd "$D" && bash "$SCRIPT" PBI-41 slug-41 --test-cmd true 2>&1)"
+if printf '%s' "$OUT41" | grep -q 'G1b suíte executada VERDE'; then
+  pass "G1b verde em worktree sem docs/reviews/ pré-existente"
+else
+  fail "G1b reportou falha falsa em worktree recém-criado — saída:"$'\n'"$OUT41"
+fi
+N=$((N+1))
+
+# =========================================================================
+# 11) paths com espaço — 'git worktree list --porcelain' + awk \$2 truncava no
+#     primeiro token ('C:/Users/Nome Sobrenome/...' é a norma no Windows)
+# =========================================================================
+D="$TMP/space dir/repo"; mk_base_repo "$D"
+WTS="$TMP/space dir/wt PBI-42"
+git -C "$D" worktree add -q -b pbi/PBI-42 "$WTS" main >/dev/null 2>&1
+mkdir -p "$WTS/docs/reviews" "$WTS/docs/tests-spec"
+( cd "$WTS" && green_gates PBI-42 slug-42 )
+SHA42="$(git -C "$D" rev-parse pbi/PBI-42)"
+printf 'G5: PASS\nCommit: %s\n' "$SHA42" > "$TMP/g5-42.log"
+expect_exit 0 "worktree com espaço no path resolve e passa -> exit 0" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-42 slug-42 --test-cmd true --g5-log '$TMP/g5-42.log'"
+
 echo
 echo "TOTAL: $N verificações"
 [ $FAIL -eq 0 ] && { echo "TEST-CHECK-GATES: OK"; exit 0; } || { echo "TEST-CHECK-GATES: FALHOU"; exit 1; }

@@ -12,13 +12,28 @@
 # $1, $KIRO_FILE_PATH e, na ausência dos dois, o .cs alterado mais recente no git.
 set -uo pipefail
 FAIL=0
+# mktemp em vez de /tmp/*.log fixo: o desenho é 1 PBI = 1 worktree — saves
+# concorrentes em worktrees diferentes colidiriam no mesmo arquivo de log.
+LOG="$(mktemp -t format-dotnet.XXXXXX)"; trap 'rm -f "$LOG"' EXIT
+
+# newest_of — lê paths no stdin, devolve o de mtime mais recente ('tail -1' após
+# sort pegava o último em ordem ALFABÉTICA, não o salvo por último)
+newest_of() {
+  local f t newest="" newest_t=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    t="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+    [ "$t" -ge "$newest_t" ] && { newest_t="$t"; newest="$f"; }
+  done
+  [ -n "$newest" ] && printf '%s\n' "$newest"
+}
 
 resolve_file() {
   if [ -n "${1:-}" ] && [ -f "${1:-}" ]; then printf '%s\n' "$1"; return 0; fi
   if [ -n "${KIRO_FILE_PATH:-}" ] && [ -f "$KIRO_FILE_PATH" ]; then printf '%s\n' "$KIRO_FILE_PATH"; return 0; fi
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     { git diff --name-only -- '*.cs'; git diff --cached --name-only -- '*.cs'; git ls-files --others --exclude-standard -- '*.cs'; } \
-      | sort -u | tail -1
+      | sort -u | newest_of
   fi
 }
 
@@ -45,15 +60,15 @@ if [ -z "$CSPROJ" ]; then
 fi
 
 if grep -qi '<Project Sdk=' "$CSPROJ" 2>/dev/null; then
-  if ! dotnet format "$CSPROJ" >/tmp/format-dotnet.log 2>&1; then
-    echo "  ✘ dotnet format falhou em $CSPROJ"; cat /tmp/format-dotnet.log; FAIL=1
+  if ! dotnet format "$CSPROJ" >"$LOG" 2>&1; then
+    echo "  ✘ dotnet format falhou em $CSPROJ"; cat "$LOG"; FAIL=1
   fi
 else
   echo "  ℹ projeto legado/non-SDK-style ($CSPROJ) — pulando 'dotnet format', só build incremental"
 fi
 
-if ! dotnet build "$CSPROJ" --nologo -v quiet >/tmp/build-dotnet.log 2>&1; then
-  echo "  ✘ build incremental falhou em $CSPROJ"; cat /tmp/build-dotnet.log; FAIL=1
+if ! dotnet build "$CSPROJ" --nologo -v quiet >"$LOG" 2>&1; then
+  echo "  ✘ build incremental falhou em $CSPROJ"; cat "$LOG"; FAIL=1
 fi
 
 exit $FAIL

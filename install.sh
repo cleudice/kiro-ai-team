@@ -57,13 +57,17 @@ while [ $# -gt 0 ]; do
     --dry-run) DRYRUN=1; shift;;
     --prune-unmanaged) PRUNE_UNMANAGED=1; shift;;
     --kiro-home) KIRO_HOME="${2:?dir}"; shift 2;;
-    -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+    -h|--help) awk 'NR>1 && /^#/{sub(/^# ?/,""); print} NR>1 && !/^#/{exit}' "$0"; exit 0;;
+    -*) echo "flag desconhecida: $1 (veja --help)"; exit 1;;
     *) DEST="$1"; shift;;
   esac
 done
 case "$SCOPE" in project|global|hybrid) ;; *) echo "escopo inválido: $SCOPE"; exit 1;; esac
 case "$STACK" in ""|dotnet|webforms|flutter|multi) ;; *) echo "stack inválido: $STACK"; exit 1;; esac
 [ "$SCOPE" = "global" ] || [ -n "$DEST" ] || { echo "informe o caminho do projeto (ou use --scope global)"; exit 1; }
+# DEST precisa existir: antes, um typo de flag (ex.: --updte) caía no case '*' e o
+# installer criava .kiro/, docs/ e AGENTS.md num diretório literalmente com esse nome.
+[ -z "$DEST" ] || [ -d "$DEST" ] || { echo "✘ diretório do projeto não existe: $DEST"; exit 1; }
 
 # _x <cmd...> — executa, ou só anuncia sob --dry-run (nunca muta o disco nesse modo)
 _x() { if [ "$DRYRUN" = "1" ]; then echo "  (dry-run) $*"; else "$@"; fi; }
@@ -214,13 +218,14 @@ install_engine() {  # $1 = raiz .kiro de destino
       [ -e "$f" ] || continue
       b="$(basename "$f")"
       array_contains "$b" "${NEW_AGENTS[@]}" && continue
-      array_contains "$b" "${PREV_AGENTS[@]}" && { _x rm -f "$f"; echo "  ✂ podado (saiu do central): agents/$b"; }
+      # ${ARR[@]+...}: array vazio sob set -u aborta no bash <4.4 (macOS 3.2, RHEL7)
+      array_contains "$b" ${PREV_AGENTS[@]+"${PREV_AGENTS[@]}"} && { _x rm -f "$f"; echo "  ✂ podado (saiu do central): agents/$b"; }
     done
     for d in "$K"/skills/*/; do
       [ -e "$d" ] || continue
       b="$(basename "$d")"
       array_contains "$b" "${NEW_SKILLS[@]}" && continue
-      array_contains "$b" "${PREV_SKILLS[@]}" && { _x rm -rf "$d"; echo "  ✂ podado (saiu do central): skills/$b"; }
+      array_contains "$b" ${PREV_SKILLS[@]+"${PREV_SKILLS[@]}"} && { _x rm -rf "$d"; echo "  ✂ podado (saiu do central): skills/$b"; }
     done
   fi
 
@@ -301,6 +306,9 @@ uninstall_project_scripts() {
   local SC; SC="$(manifest_field "$K/$VERFILE" scripts)"
   for f in $SC; do if [ -e "$K/scripts/$f" ]; then _x rm -f "$K/scripts/$f"; echo "  ✂ removido: scripts/$f"; fi; done
   _x rm -f "$K/.kiro-ai-team-paths"
+  # sem isto o manifesto ficava órfão apontando scripts inexistentes — um --update
+  # posterior leria 'scripts' de um manifesto mentiroso
+  _x rm -f "$K/$VERFILE"
   echo "  ✔ camada fina de scripts removida de $K (steering/docs preservados)"
 }
 
@@ -352,10 +360,12 @@ case "$SCOPE" in
     echo "  ℹ MCP global: mescle fragmentos de $SRC/mcp em $KIRO_HOME/settings/mcp.json"
     ;;
   hybrid)
-    install_engine "$KIRO_HOME"
-    install_project_layer "$DEST" "$KIRO_HOME"
-    # sem engine local: evita duplicidade/conflito de nomes de agente
+    # ANTES dos installs: depois deles os dois manifestos já teriam $VER e o aviso
+    # de divergência nunca dispararia (era código morto)
     warn_version_mismatch
+    install_engine "$KIRO_HOME"
+    # sem engine local: evita duplicidade/conflito de nomes de agente
+    install_project_layer "$DEST" "$KIRO_HOME"
     ;;
 esac
 

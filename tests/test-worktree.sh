@@ -35,11 +35,11 @@ git update-ref refs/remotes/origin/main main
 # 1) start cria worktree + branch pbi/<ID>
 # =========================================================================
 WT="$D/../wt-I3"
-bash "$WORKTREE_SH" start I3 >/tmp/wt-out-1.log 2>&1 || true
+bash "$WORKTREE_SH" start I3 >"$TMP"/wt-out-1.log 2>&1 || true
 if [ -d "$WT" ] && git rev-parse --verify -q refs/heads/pbi/I3 >/dev/null; then
   pass "start: worktree + branch pbi/I3 criados"
 else
-  fail "start: worktree/branch não criados — saída: $(cat /tmp/wt-out-1.log)"
+  fail "start: worktree/branch não criados — saída: $(cat "$TMP"/wt-out-1.log)"
 fi
 N=$((N+1))
 

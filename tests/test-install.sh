@@ -19,7 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 # 1) instalação --stack dotnet: só o dev do stack + os 6 papéis stack-agnósticos
 # =========================================================================
 D1="$TMP/proj-dotnet"; mkdir -p "$D1"
-bash "$INSTALL" "$D1" --stack dotnet >/tmp/install-out-1.log 2>&1
+bash "$INSTALL" "$D1" --stack dotnet >"$TMP"/install-out-1.log 2>&1
 K1="$D1/.kiro"
 
 assert_exists "$K1/agents/orchestrator.json"
@@ -77,11 +77,16 @@ RESOLVED1="$(bash "$K1/scripts/kiro-paths.sh")"
   || fail "kiro-paths.sh resolveu '$RESOLVED1', esperado '$K1'"
 N=$((N+1))
 
+# hooks/scripts/ vai junto da engine (dependência de carga do guard do qa-blackbox
+# e dos hooks format-*) — nenhum teste cobria isso antes
+assert_exists "$K1/hooks/scripts/qa-blackbox-guard.sh"
+assert_exists "$K1/hooks/scripts/format-dotnet.sh"
+
 # =========================================================================
 # 2) install sem --stack: todos os 3 devs presentes (multi = sem podar)
 # =========================================================================
 D2="$TMP/proj-multi"; mkdir -p "$D2"
-bash "$INSTALL" "$D2" >/tmp/install-out-2.log 2>&1
+bash "$INSTALL" "$D2" >"$TMP"/install-out-2.log 2>&1
 K2="$D2/.kiro"
 assert_exists "$K2/agents/dev-dotnet.json"
 assert_exists "$K2/agents/dev-webforms.json"
@@ -91,7 +96,7 @@ assert_exists "$K2/agents/dev-flutter.json"
 # 3) --update PODA de verdade (A1): skill que o TIME instalou e saiu do central some
 # =========================================================================
 D3="$TMP/proj-update"; mkdir -p "$D3"
-bash "$INSTALL" "$D3" --stack dotnet >/tmp/install-out-3.log 2>&1
+bash "$INSTALL" "$D3" --stack dotnet >"$TMP"/install-out-3.log 2>&1
 K3="$D3/.kiro"
 mkdir -p "$K3/skills/skill-fantasma"
 echo "---
@@ -111,7 +116,7 @@ d['skills'] = d.get('skills', []) + ['skill-fantasma']
 json.dump(d, open(p, 'w'), indent=2)
 "
 
-bash "$INSTALL" "$D3" --update >/tmp/install-out-3b.log 2>&1
+bash "$INSTALL" "$D3" --update >"$TMP"/install-out-3b.log 2>&1
 assert_absent "$K3/skills/skill-fantasma"
 
 # skills reais continuam lá após o update
@@ -132,12 +137,12 @@ description: skill própria deste projeto
 ---
 # skill do projeto" > "$K3/skills/skill-do-projeto/SKILL.md"
 
-bash "$INSTALL" "$D3" --update >/tmp/install-out-3c.log 2>&1
+bash "$INSTALL" "$D3" --update >"$TMP"/install-out-3c.log 2>&1
 assert_exists "$K3/agents/analista-crash-app-x.json"
 assert_exists "$K3/skills/skill-do-projeto/SKILL.md"
 
 # --prune-unmanaged restaura o comportamento antigo (converge tudo) — remove os dois
-bash "$INSTALL" "$D3" --update --prune-unmanaged >/tmp/install-out-3d.log 2>&1
+bash "$INSTALL" "$D3" --update --prune-unmanaged >"$TMP"/install-out-3d.log 2>&1
 assert_absent "$K3/agents/analista-crash-app-x.json"
 assert_absent "$K3/skills/skill-do-projeto"
 
@@ -145,7 +150,7 @@ assert_absent "$K3/skills/skill-do-projeto"
 # 4) --update sem repassar --stack MEMORIZA o stack original (A2)
 #    (dev-webforms/flutter não devem aparecer só porque --update rodou sem --stack)
 # =========================================================================
-bash "$INSTALL" "$D3" --update >/tmp/install-out-3c.log 2>&1
+bash "$INSTALL" "$D3" --update >"$TMP"/install-out-3c.log 2>&1
 assert_absent "$K3/agents/dev-webforms.json"
 assert_absent "$K3/agents/dev-flutter.json"
 assert_exists "$K3/agents/dev-dotnet.json"
@@ -154,7 +159,7 @@ assert_exists "$K3/agents/dev-dotnet.json"
 # 5) --scope global: engine em KIRO_HOME isolado, sem exigir DEST
 # =========================================================================
 KH="$TMP/kiro-home"; mkdir -p "$KH"
-bash "$INSTALL" --scope global --kiro-home "$KH" >/tmp/install-out-4.log 2>&1
+bash "$INSTALL" --scope global --kiro-home "$KH" >"$TMP"/install-out-4.log 2>&1
 assert_exists "$KH/agents/orchestrator.json"
 assert_exists "$KH/steering/principios.md"
 # B1/B3 — escopo global puro também recebe scripts/ (uso standalone, sem camada
@@ -171,7 +176,7 @@ assert_exists "$KH/.kiro-ai-team-paths"
 # =========================================================================
 KH2="$TMP/kiro-home-hybrid"; mkdir -p "$KH2"
 DH="$TMP/proj-hybrid"; mkdir -p "$DH"
-bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --stack dotnet >/tmp/install-out-5b.log 2>&1
+bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --stack dotnet >"$TMP"/install-out-5b.log 2>&1
 KDH="$DH/.kiro"
 assert_absent "$KDH/agents"                     # hybrid: sem engine local, evita conflito de nomes
 assert_exists "$KDH/scripts/worktree.sh"         # camada fina SEMPRE presente no projeto
@@ -182,20 +187,29 @@ RESOLVED_HYBRID="$(bash "$KDH/scripts/kiro-paths.sh")"
 [ "$RESOLVED_HYBRID" = "$KH2" ] && pass "kiro-paths.sh (hybrid) resolve pra KIRO_HOME" \
   || fail "kiro-paths.sh (hybrid) resolveu '$RESOLVED_HYBRID', esperado '$KH2'"
 N=$((N+1))
+# regressão do B3 completo: os hooks format-* referenciam
+# "$(kiro-paths.sh)/hooks/scripts/<x>.sh" — esse caminho precisa existir de fato
+# no escopo hybrid (antes os scripts iam só pra engine e o path relativo
+# ".kiro/hooks/scripts/" do JSON apontava pro vazio)
+assert_exists "$RESOLVED_HYBRID/hooks/scripts/format-dotnet.sh"
+assert_exists "$RESOLVED_HYBRID/hooks/scripts/check-oracle.sh"
 
 # --uninstall no hybrid remove a camada fina do projeto E a engine do KIRO_HOME,
 # sem tocar steering/docs do projeto (mesma regra do escopo project)
-bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --uninstall >/tmp/install-out-5c.log 2>&1
+bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --uninstall >"$TMP"/install-out-5c.log 2>&1
 assert_absent "$KDH/scripts/worktree.sh"
 assert_absent "$KH2/agents/orchestrator.json"
+# manifesto do projeto também sai — deixá-lo apontando scripts inexistentes
+# faria um --update posterior ler um manifesto mentiroso
+assert_absent "$KDH/.kiro-ai-team-version"
 assert_exists "$KDH/steering/product.md"
 
 # =========================================================================
 # 6) --dry-run não escreve nada no disco
 # =========================================================================
 D5="$TMP/proj-dryrun"; mkdir -p "$D5"
-bash "$INSTALL" "$D5" --stack dotnet --dry-run >/tmp/install-out-5.log 2>&1
-grep -q '(dry-run)' /tmp/install-out-5.log && pass "dry-run anuncia as ações" || fail "dry-run não anunciou nada"
+bash "$INSTALL" "$D5" --stack dotnet --dry-run >"$TMP"/install-out-5.log 2>&1
+grep -q '(dry-run)' "$TMP"/install-out-5.log && pass "dry-run anuncia as ações" || fail "dry-run não anunciou nada"
 N=$((N+1))
 assert_absent "$D5/.kiro"
 
@@ -203,8 +217,8 @@ assert_absent "$D5/.kiro"
 # 7) --uninstall remove agents/skills, preserva steering do projeto
 # =========================================================================
 D6="$TMP/proj-uninstall"; mkdir -p "$D6"
-bash "$INSTALL" "$D6" --stack dotnet >/tmp/install-out-6.log 2>&1
-bash "$INSTALL" "$D6" --uninstall >/tmp/install-out-6b.log 2>&1
+bash "$INSTALL" "$D6" --stack dotnet >"$TMP"/install-out-6.log 2>&1
+bash "$INSTALL" "$D6" --uninstall >"$TMP"/install-out-6b.log 2>&1
 assert_absent "$D6/.kiro/agents/orchestrator.json"
 assert_absent "$D6/.kiro/skills/merge-gate"
 # I5 — scripts/ (worktree.sh, kiro-paths.sh) também sai no uninstall; antes
@@ -216,4 +230,7 @@ assert_exists "$D6/AGENTS.md"
 
 echo
 echo "TOTAL: $N verificações"
+# em falha, despeja os logs das execuções — antes um assert vermelho no CI não
+# dava diagnóstico nenhum (logs ficavam em /tmp fixo e nunca eram impressos)
+[ $FAIL -eq 0 ] || { echo "--- logs das execuções ---"; tail -n +1 "$TMP"/install-out-*.log 2>/dev/null; }
 [ $FAIL -eq 0 ] && { echo "TEST-INSTALL: OK"; exit 0; } || { echo "TEST-INSTALL: FALHOU"; exit 1; }

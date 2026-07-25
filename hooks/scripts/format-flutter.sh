@@ -9,13 +9,28 @@
 # $1, $KIRO_FILE_PATH e, na ausência dos dois, o .dart alterado mais recente no git.
 set -uo pipefail
 FAIL=0
+# mktemp em vez de /tmp/*.log fixo: o desenho é 1 PBI = 1 worktree — saves
+# concorrentes em worktrees diferentes colidiriam no mesmo arquivo de log.
+LOG="$(mktemp -t format-flutter.XXXXXX)"; trap 'rm -f "$LOG"' EXIT
+
+# newest_of — lê paths no stdin, devolve o de mtime mais recente ('tail -1' após
+# sort pegava o último em ordem ALFABÉTICA, não o salvo por último)
+newest_of() {
+  local f t newest="" newest_t=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    t="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+    [ "$t" -ge "$newest_t" ] && { newest_t="$t"; newest="$f"; }
+  done
+  [ -n "$newest" ] && printf '%s\n' "$newest"
+}
 
 resolve_file() {
   if [ -n "${1:-}" ] && [ -f "${1:-}" ]; then printf '%s\n' "$1"; return 0; fi
   if [ -n "${KIRO_FILE_PATH:-}" ] && [ -f "$KIRO_FILE_PATH" ]; then printf '%s\n' "$KIRO_FILE_PATH"; return 0; fi
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     { git diff --name-only -- '*.dart'; git diff --cached --name-only -- '*.dart'; git ls-files --others --exclude-standard -- '*.dart'; } \
-      | sort -u | tail -1
+      | sort -u | newest_of
   fi
 }
 
@@ -40,12 +55,12 @@ if [ -z "$PKG_DIR" ]; then
   exit 0
 fi
 
-if ! dart format "$F" >/tmp/format-flutter.log 2>&1; then
-  echo "  ✘ dart format falhou em $F"; cat /tmp/format-flutter.log; FAIL=1
+if ! dart format "$F" >"$LOG" 2>&1; then
+  echo "  ✘ dart format falhou em $F"; cat "$LOG"; FAIL=1
 fi
 
-if ! ( cd "$PKG_DIR" && flutter analyze ) >/tmp/analyze-flutter.log 2>&1; then
-  echo "  ✘ flutter analyze reportou problema(s) em $PKG_DIR"; cat /tmp/analyze-flutter.log; FAIL=1
+if ! ( cd "$PKG_DIR" && flutter analyze ) >"$LOG" 2>&1; then
+  echo "  ✘ flutter analyze reportou problema(s) em $PKG_DIR"; cat "$LOG"; FAIL=1
 fi
 
 exit $FAIL
