@@ -8,17 +8,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIPT="$ROOT/skills/merge-gate/scripts/check-gates.sh"
 FAIL=0; N=0
 
-pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
-fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
-
-# expect_exit <esperado> <descrição> -- <comando...>
-expect_exit() {
-  local want="$1" desc="$2"; shift 2
-  [ "$1" = "--" ] && shift
-  local out; out="$("$@" 2>&1)"; local got=$?
-  if [ "$got" -eq "$want" ]; then pass "$desc (exit $got)"
-  else fail "$desc (esperado exit $want, veio $got) — saída:"$'\n'"$out"; fi
-}
+. "$HERE/lib.sh"   # harness comum: pass/fail/expect_exit/assert_*
 
 # ---- fixture: repo git com main + docs/reviews + docs/tests-spec -----------
 mk_base_repo() {
@@ -52,7 +42,7 @@ D="$TMP/basic"; mk_base_repo "$D"
 green_gates PBI-1 slug-1
 printf 'G5: PASS\n' > "$TMP/g5.log"
 expect_exit 0 "tudo verde + g5-log PASS -> exit 0" -- \
-  bash "$SCRIPT" PBI-1 slug-1 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5.log"
+  bash "$SCRIPT" PBI-1 slug-1 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5.log" --allow-missing-branch "fixture sem branch pbi/"
 
 # G1 ausente
 D="$TMP/no-g1"; mk_base_repo "$D"
@@ -74,7 +64,7 @@ printf 'G5: PASS\n' > "$TMP/g5-3.log"
 expect_exit 1 "manutenção sem tests-spec e SEM --no-new-criteria -> exit 1 (dispensa por omissão não existe mais)" -- \
   bash "$SCRIPT" PBI-3 slug-3 --repo "$D" --track manutencao --test-cmd "true" --g5-log "$TMP/g5-3.log"
 expect_exit 0 "manutenção sem critério novo COM --no-new-criteria -> exit 0" -- \
-  bash "$SCRIPT" PBI-3 slug-3 --repo "$D" --track manutencao --test-cmd "true" --g5-log "$TMP/g5-3.log" --no-new-criteria "bugfix sem critério de aceitação novo"
+  bash "$SCRIPT" PBI-3 slug-3 --repo "$D" --track manutencao --test-cmd "true" --g5-log "$TMP/g5-3.log" --no-new-criteria "bugfix sem critério de aceitação novo" --allow-missing-branch "fixture sem branch pbi/"
 if grep -q 'no-new-criteria' "$D/docs/reviews/PBI-3-gate.md" 2>/dev/null; then
   pass "escape --no-new-criteria registrado em PBI-3-gate.md"
 else
@@ -89,7 +79,7 @@ printf 'G5: PASS\n' > "$TMP/g5-30.log"
 expect_exit 1 "G2 com BLOCKED sem --allow-blocked -> exit 1" -- \
   bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log"
 expect_exit 0 "G2 com BLOCKED e --allow-blocked -> exit 0" -- \
-  bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log" --allow-blocked "legado sem ambiente de smoke (IIS)"
+  bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log" --allow-blocked "legado sem ambiente de smoke (IIS)" --allow-missing-branch "fixture sem branch pbi/"
 printf 'R1.1 - FAIL - quebrou\n' > "docs/reviews/PBI-30-verify.md"
 expect_exit 1 "G2 com FAIL reprova mesmo com --allow-blocked" -- \
   bash "$SCRIPT" PBI-30 slug-30 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-30.log" --allow-blocked "x"
@@ -126,11 +116,11 @@ expect_exit 1 "sem --g5-log e sem --skip-g5 -> G5 bloqueia (exit 1)" -- \
   bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true"
 
 expect_exit 0 "--skip-g5 com motivo -> escape explícito, exit 0" -- \
-  bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "sem ambiente de integração disponível"
+  bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "sem ambiente de integração disponível" --allow-missing-branch "fixture sem branch pbi/"
 
 # gate.md de escape é IDEMPOTENTE: rodar 3x não empilha 3 blocos
-bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" >/dev/null 2>&1
-bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" >/dev/null 2>&1
+bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" --allow-missing-branch "fixture" >/dev/null 2>&1
+bash "$SCRIPT" PBI-7 slug-7 --repo "$D" --test-cmd "true" --skip-g5 "motivo" --allow-missing-branch "fixture" >/dev/null 2>&1
 BLOCOS="$(grep -c '^<!-- check-gates:escapes -->' "$D/docs/reviews/PBI-7-gate.md" 2>/dev/null || echo 0)"
 if [ "$BLOCOS" -eq 1 ]; then pass "--skip-g5 repetido: gate.md com 1 bloco de escapes (idempotente)"
 else fail "--skip-g5 repetido: esperado 1 bloco em gate.md, veio $BLOCOS"; fi
@@ -171,7 +161,7 @@ green_gates PBI-9 slug-9
 } > "docs/reviews/PBI-9-verify.md"
 printf 'G5: PASS\n' > "$TMP/g5-9.log"
 expect_exit 0 "G2: 'FAIL' fora de linha de critério não reprova (A4) -> exit 0" -- \
-  bash "$SCRIPT" PBI-9 slug-9 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-9.log"
+  bash "$SCRIPT" PBI-9 slug-9 --repo "$D" --test-cmd "true" --g5-log "$TMP/g5-9.log" --allow-missing-branch "fixture sem branch pbi/"
 
 D="$TMP/g2-anchored-bad"; mk_base_repo "$D"
 green_gates PBI-10 slug-10
@@ -220,12 +210,23 @@ git -C "$D" branch pbi/PBI-22 main
 expect_exit 1 "branch pbi/<ID> sem worktree -> exit 1 com mensagem clara" -- \
   bash -c "cd '$D' && bash '$SCRIPT' PBI-22 slug-22 --test-cmd true"
 
-# 4c. sem branch pbi/<ID> nenhuma -> cai no cwd (compat com uso simples/manual)
+# 4c. sem branch pbi/<ID> nenhuma -> cai no cwd, mas B2 sem branch agora REPROVA
+# por default (antes era pulado em silêncio — aprovação sem vínculo); o uso
+# manual/exemplo declara com --allow-missing-branch e fica registrado no gate.md
 D="$TMP/no-pbi-branch"; mk_base_repo "$D"
 green_gates PBI-23 slug-23
 printf 'G5: PASS\n' > "$TMP/g5-23.log"
-expect_exit 0 "sem branch pbi/<ID>: fallback pro cwd -> exit 0" -- \
+expect_exit 1 "sem branch pbi/<ID> e SEM --allow-missing-branch -> exit 1 (fuga silenciosa do B2 fechada)" -- \
   bash -c "cd '$D' && bash '$SCRIPT' PBI-23 slug-23 --test-cmd true --g5-log '$TMP/g5-23.log'"
+expect_exit 0 "sem branch pbi/<ID> COM --allow-missing-branch -> exit 0 (escape explícito)" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-23 slug-23 --test-cmd true --g5-log '$TMP/g5-23.log' --allow-missing-branch 'uso manual sem worktree'"
+if grep -q 'allow-missing-branch' "$D/docs/reviews/PBI-23-gate.md" 2>/dev/null; then
+  pass "escape --allow-missing-branch registrado em PBI-23-gate.md"
+else
+  fail "escape --allow-missing-branch NÃO registrado em PBI-23-gate.md"
+fi
+expect_exit 2 "--track com valor desconhecido -> exit 2 (vocabulário validado, typo não vira trilho feature mudo)" -- \
+  bash -c "cd '$D' && bash '$SCRIPT' PBI-23 slug-23 --test-cmd true --track spec-completa"
 
 # =========================================================================
 # 5) bump-counter (comportamento existente, não deve regredir)
@@ -264,7 +265,7 @@ expect_exit 1 "--test-cmd com placeholder '...' não preenchido -> exit 1" -- \
 D="$TMP/ledger"; mk_base_repo "$D"
 green_gates PBI-25 slug-25
 printf 'G5: PASS\n' > "$TMP/g5-25.log"
-bash "$SCRIPT" PBI-25 slug-25 --repo "$D" --test-cmd true --g5-log "$TMP/g5-25.log" >/dev/null
+bash "$SCRIPT" PBI-25 slug-25 --repo "$D" --test-cmd true --g5-log "$TMP/g5-25.log" --allow-missing-branch "fixture" >/dev/null
 if [ -f "$D/docs/reviews/.gate-ledger" ] && grep -q 'PBI-25' "$D/docs/reviews/.gate-ledger"; then
   pass "ledger registrou a execução do PBI-25"
 else
@@ -372,6 +373,37 @@ SHA42="$(git -C "$D" rev-parse pbi/PBI-42)"
 printf 'G5: PASS\nCommit: %s\n' "$SHA42" > "$TMP/g5-42.log"
 expect_exit 0 "worktree com espaço no path resolve e passa -> exit 0" -- \
   bash -c "cd '$D' && bash '$SCRIPT' PBI-42 slug-42 --test-cmd true --g5-log '$TMP/g5-42.log'"
+
+# =========================================================================
+# 12) G0 — recomendado, NÃO bloqueante (vira bloqueante na 2.0): sem
+#     spec-draft aprovado o exit continua 0, mas o aviso ⚠ precisa aparecer;
+#     com draft APROVADO, o ✔ de G0 aparece. Único gate que não tinha teste.
+# =========================================================================
+D="$TMP/g0"; mk_base_repo "$D"
+green_gates PBI-50 slug-50
+printf 'G5: PASS\n' > "$TMP/g5-50.log"
+OUT50="$(bash "$SCRIPT" PBI-50 slug-50 --repo "$D" --test-cmd true --g5-log "$TMP/g5-50.log" --allow-missing-branch "fixture" 2>&1)"; RC50=$?
+if [ "$RC50" -eq 0 ] && printf '%s' "$OUT50" | grep -q 'G0 ausente'; then
+  pass "G0 ausente: avisa (⚠) mas não bloqueia (exit 0)"
+else
+  fail "G0 ausente: esperado exit 0 + aviso 'G0 ausente' (exit $RC50) — saída:"$'\n'"$OUT50"
+fi
+N=$((N+1))
+printf 'Veredicto: APROVADO\n' > "$D/docs/reviews/PBI-50-spec-draft.md"
+OUT50B="$(bash "$SCRIPT" PBI-50 slug-50 --repo "$D" --test-cmd true --g5-log "$TMP/g5-50.log" --allow-missing-branch "fixture" 2>&1)"
+if printf '%s' "$OUT50B" | grep -q 'G0 spec revisada'; then
+  pass "G0 com spec-draft APROVADO: reconhecido (✔)"
+else
+  fail "G0 com draft aprovado não reconhecido — saída:"$'\n'"$OUT50B"
+fi
+N=$((N+1))
+OUT50C="$(bash "$SCRIPT" PBI-50 slug-50 --repo "$D" --track manutencao --test-cmd true --g5-log "$TMP/g5-50.log" --allow-missing-branch "fixture" 2>&1)"
+if printf '%s' "$OUT50C" | grep -q 'G0'; then
+  fail "G0 não deveria ser avaliado no trilho manutenção — saída:"$'\n'"$OUT50C"
+else
+  pass "G0 só é avaliado no trilho feature (manutenção não menciona G0)"
+fi
+N=$((N+1))
 
 echo
 echo "TOTAL: $N verificações"

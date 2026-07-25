@@ -4,15 +4,29 @@ Instalar o kiro-ai-team num ambiente que já tem as skills anteriores cria **dup
 
 ## Mapa de migração
 
-| Skill antiga | No kiro-ai-team | Ação |
-|---|---|---|
-| `write-prd` | `write-requirements` (formato Kiro/EARS) | **remover** a antiga |
-| `plan-change` | `write-tasks` | **remover** |
-| `implement-change` | `task-preflight` (pré-flight/checkpoint; execução é o "Start task" nativo do Kiro) | **remover** |
-| `review-change` | `review-spec` + `review-code` (split adversarial) | **remover** |
-| `dotnet-guidelines` (skill) | `steering/guidelines/dotnet.md` (fileMatch) | **remover** a skill |
-| `issue-analysis`, `feature-spec` (era OpenCode) | `triage-issue` / `write-requirements` | **remover** |
-| `write-design`, `verify-change`, `triage-issue`, `resolve-issue`, `triage-crash`, `reverse-engineer-project` | mesmo nome | sobrescritas pelo install — nada a fazer |
+| Skill antiga                                                                                 | No kiro-ai-team                                                                    | Ação                                           |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `write-prd`                                                                                  | `write-requirements` (formato Kiro/EARS)                                           | **remover** a antiga                           |
+| `plan-change`                                                                                | `write-tasks`                                                                      | **remover**                                    |
+| `implement-change`                                                                           | `task-preflight` (pré-flight/checkpoint; execução é o "Start task" nativo do Kiro) | **remover**                                    |
+| `review-change`                                                                              | `review-spec` + `review-code` (split adversarial)                                  | **remover**                                    |
+| `dotnet-guidelines` (skill)                                                                  | `steering/guidelines/dotnet.md` (fileMatch)                                        | **remover** a skill                            |
+| `issue-analysis`, `feature-spec` (era OpenCode)                                              | `triage-issue` / `write-requirements`                                              | **remover**                                    |
+| `write-design`, `verify-change`, `triage-issue`, `resolve-issue`, `reverse-engineer-project` | mesmo nome                                                                         | sobrescritas pelo install — nada a fazer       |
+| `triage-crash`                                                                               | fundida em `triage-issue` (1.10.0 — origem `crashlytics`)                          | removida no update via manifesto; nada a fazer |
+
+## Renomeações de agentes (v1 → kiro-ai-team)
+
+| Antes                      | Agora                                | Motivo                                                                           |
+| -------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| scrum-master               | `orchestrator`                       | descreve a função, não a cerimônia                                               |
+| requirements-analyst       | `spec-analyst`                       | alinhado ao conceito de spec do Kiro                                             |
+| dev-legacy                 | `dev-webforms`                       | nome pelo stack, não pelo juízo                                                  |
+| test-writer-blackbox       | `qa-blackbox`                        | papel curto e reutilizável                                                       |
+| reviewer-requisitos/codigo | `reviewer-spec` / `reviewer-code`    | padrão `reviewer-<eixo>`                                                         |
+| write-prd / plan-change    | `write-requirements` / `write-tasks` | espelham os arquivos nativos do Kiro                                             |
+| audit-sprint               | `audit-integration`                  | nomeia o que audita                                                              |
+| implement-task             | `task-preflight`                     | quem executa a task é o "Start task" nativo; o skill só prepara e faz checkpoint |
 
 ## Passos
 
@@ -31,4 +45,5 @@ Instalar o kiro-ai-team num ambiente que já tem as skills anteriores cria **dup
 5. Repositórios que referenciam nomes antigos em steering/hooks/docs: `grep -rl 'plan-change\|write-prd\|implement-change\|review-change' .kiro/ docs/ || true` e atualize.
 
 ## Regra permanente
+
 Um nome de skill existe em **um** lugar (local OU global, nunca ambos) e com **uma** versão. Duplicata é bug, não redundância.

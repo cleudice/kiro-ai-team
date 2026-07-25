@@ -23,7 +23,7 @@ description: Gera .kiro/specs/<slug>/tasks.md — checklist executável com os g
 - [ ] G2. verify-change com evidência — dono: quem implementou a task (dev-* ou qa-blackbox)
 - [ ] G3. review-spec APROVADO — dono: reviewer-spec
 - [ ] G4. review-code APROVADO — dono: reviewer-code
-- [ ] G5. merge-gate — dono: orchestrator
+- [ ] G5. regressão de integração verde — dono: orchestrator (via merge-gate; o merge-gate executa TODOS os gates, G5 é só o último)
 ```
 
 ## Regras

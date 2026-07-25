@@ -10,6 +10,8 @@ cd_repo_root
 b="$(git branch --show-current 2>/dev/null || true)"
 if [ -n "$b" ] && [ "$b" != "${b#pbi/}" ]; then
   echo "worktree do PBI confirmado: branch $b"
-elif grep -l '^- \[ \]' .kiro/specs/*/tasks.md >/dev/null 2>&1; then
+# [-*+] tolerante como no task-checkpoint.sh (extract_cmd): acoplar ao literal
+# '^- ' silenciava o aviso se o tasks.md usasse '*' ou '+' como marcador.
+elif grep -lE '^[-*+][[:space:]]*\[ \]' .kiro/specs/*/tasks.md >/dev/null 2>&1; then
   echo "⚠ há specs com task PENDENTE ('[ ]') em .kiro/specs/ mas a branch atual ('${b:-desconhecida}') não é pbi/<ID> — confirme se é o worktree certo antes de rodar 'Start task' (.kiro/scripts/worktree.sh start <PBI>)."
 fi

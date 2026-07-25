@@ -10,8 +10,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 FAIL=0; N=0
-pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
-fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
+. "$HERE/lib.sh"   # harness comum: pass/fail/expect_exit/assert_*
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -22,7 +21,8 @@ trap 'rm -rf "$TMP"' EXIT
 cp -r "$ROOT/examples/PBI-EXEMPLO" "$TMP/ex"
 OUT="$(cd "$TMP/ex" && bash "$ROOT/skills/merge-gate/scripts/check-gates.sh" PBI-EXEMPLO exemplo-desconto \
   --repo . --track manutencao --test-cmd true \
-  --skip-g5 "exemplo ilustrativo — sem branch/merge real pra simular regressão" 2>&1)"
+  --skip-g5 "exemplo ilustrativo — sem branch/merge real pra simular regressão" \
+  --allow-missing-branch "exemplo ilustrativo — sem branch pbi/ real pra amarrar evidência" 2>&1)"
 RC=$?
 if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "GATES OK"; then
   pass "PBI-EXEMPLO: comando do README termina em GATES OK (exit 0)"
@@ -33,7 +33,7 @@ fi
 # e a promessa inversa: sem a evidência do G4, reprova
 rm "$TMP/ex/docs/reviews/PBI-EXEMPLO-code.md"
 ( cd "$TMP/ex" && bash "$ROOT/skills/merge-gate/scripts/check-gates.sh" PBI-EXEMPLO exemplo-desconto \
-  --repo . --track manutencao --test-cmd true --skip-g5 "x" ) >/dev/null 2>&1
+  --repo . --track manutencao --test-cmd true --skip-g5 "x" --allow-missing-branch "x" ) >/dev/null 2>&1
 if [ $? -eq 1 ]; then pass "PBI-EXEMPLO: sem PBI-EXEMPLO-code.md reprova (exit 1), como o README ensina"
 else fail "PBI-EXEMPLO: deveria reprovar sem a evidência do G4"; fi
 

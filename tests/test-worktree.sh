@@ -9,15 +9,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 WORKTREE_SH="$ROOT/scripts/worktree.sh"
 FAIL=0; N=0
 
-pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
-fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
-expect_exit() {
-  local want="$1" desc="$2"; shift 2
-  [ "$1" = "--" ] && shift
-  local out; out="$("$@" 2>&1)"; local got=$?
-  if [ "$got" -eq "$want" ]; then pass "$desc (exit $got)"
-  else fail "$desc (esperado exit $want, veio $got) — saída:"$'\n'"$out"; fi
-}
+. "$HERE/lib.sh"   # harness comum: pass/fail/expect_exit/assert_*
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -93,6 +85,27 @@ N=$((N+1))
 [ ! -d "$WTQA" ] && pass "finish removeu também o worktree QA e a branch qa/pbi/I3" \
   || fail "worktree QA sobrou após finish"
 N=$((N+1))
+
+# =========================================================================
+# 4) --qa respeita "Código-fonte:" do tech.md (lib/ em vez do default src/)
+# =========================================================================
+mkdir -p "$D/.kiro/steering"
+printf -- '- Código-fonte: `lib/`\n' > "$D/.kiro/steering/tech.md"
+bash "$WORKTREE_SH" start I4 >"$TMP"/wt-out-4.log 2>&1 || true
+WT4="$D/../wt-I4"
+mkdir -p "$WT4/lib" "$WT4/src"
+echo "código" > "$WT4/lib/app.dart"
+echo "não-código neste projeto" > "$WT4/src/util.md"
+git -C "$WT4" add -A; git -C "$WT4" commit -qm "estrutura lib+src"
+expect_exit 0 "start --qa com tech.md Código-fonte: lib/" -- bash "$WORKTREE_SH" start I4 --qa
+WTQA4="$D/../wt-I4-qa"
+if [ -d "$WTQA4" ] && [ ! -e "$WTQA4/lib/app.dart" ] && [ -e "$WTQA4/src/util.md" ]; then
+  pass "worktree QA exclui lib/ (tech.md) e mantém src/ — isolamento segue o stack, não o literal"
+else
+  fail "worktree QA com Código-fonte lib/: lib existe? $([ -e "$WTQA4/lib/app.dart" ] && echo sim || echo não); src existe? $([ -e "$WTQA4/src/util.md" ] && echo sim || echo não)"
+fi
+N=$((N+1))
+rm -f "$D/.kiro/steering/tech.md"
 
 echo
 echo "TOTAL: $N verificações"

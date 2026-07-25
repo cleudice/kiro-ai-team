@@ -9,4 +9,4 @@
 - [x] G2. verify-change com evidência — dono: dev-dotnet
 - [x] G3. review-spec APROVADO — dono: reviewer-spec
 - [x] G4. review-code APROVADO — dono: reviewer-code
-- [ ] G5. merge-gate — dono: orchestrator (ver README.md deste exemplo — usa --skip-g5, não é um PBI real)
+- [ ] G5. regressão de integração verde — dono: orchestrator (via merge-gate; ver README.md deste exemplo — usa --skip-g5, não é um PBI real)

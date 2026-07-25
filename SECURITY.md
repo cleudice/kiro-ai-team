@@ -13,4 +13,6 @@ Abra um [security advisory privado no GitHub](https://github.com/cleudice/kiro-a
 ## Superfícies a saber
 
 - Hooks executam shell local (`hooks/scripts/*.sh`) em resposta a eventos do IDE — revise antes de copiar para `.kiro/hooks/`.
-- `task-checkpoint.sh` e `check-gates.sh` executam os comandos declarados em `steering/tech.md` com `bash -c` — `tech.md` é parte da superfície de confiança do repo instalado.
+- **`steering/tech.md` é código executável**: `task-checkpoint.sh` e `check-gates.sh` rodam os comandos de `Build:`/`Testes:` com `bash -c`, sem allowlist — um PR que edite `tech.md` executa o que quiser no checkpoint de cada task e na execução dos gates. Trate mudança em `tech.md` como mudança de CI: revisão obrigatória em PR. Cada execução dos gates registra o comando usado em `docs/reviews/.gate-ledger` (auditável a posteriori).
+- **`.kiro/.kiro-ai-team-paths` é sourceado como shell** por `kiro-paths.sh` em toda invocação de hook — mesmo tratamento: arquivo gravado pelo installer, qualquer edição manual/PR é código executando na sua máquina.
+- A linha `Código-fonte:` de `tech.md` define os diretórios que o isolamento black-box protege (worktree `--qa` e guards) — remover/apontar errado desliga a barreira física silenciosamente; revise junto.

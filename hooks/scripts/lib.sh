@@ -55,6 +55,29 @@ find_up() {
   return 1
 }
 
+# code_dirs [<tech.md>] — diretórios de implementação do projeto, um por linha,
+# sem barras nas pontas. Fonte: linha "Código-fonte: `src/`" do steering/tech.md
+# (lista separada por espaço dentro das crases, ex.: `lib/ web/`). Fallback: src.
+# É a base do isolamento black-box: 'src/' hardcoded quebrava silenciosamente em
+# stack cujo código não vive em src/ (Flutter usa lib/, WebForms legado usa a
+# raiz/módulos) — o worktree --qa baixava o código inteiro e os guards nunca
+# disparavam. Consumidores: worktree.sh (parser local, mesmo formato — não pode
+# sourcear esta lib, caminho de instalação diferente) e guard-common.sh.
+code_dirs() {
+  local tech="${1:-.kiro/steering/tech.md}" raw d found=0
+  # [^`]* (não .*) antes da 1ª crase: .* é guloso e capturaria o ÚLTIMO par de
+  # crases da linha — que no template é um exemplo dentro do comentário HTML.
+  # (Có|Co) e não C[oó]: bracket com multibyte quebra em locale C (ó são 2 bytes)
+  raw="$(grep -m1 -E '^[-*+]?[[:space:]]*(Có|Co)digo-fonte:' "$tech" 2>/dev/null | sed -n 's/[^`]*`\([^`]*\)`.*/\1/p')"
+  case "$raw" in *'...'*) raw="";; esac
+  for d in $raw; do
+    d="${d#/}"; d="${d%/}"
+    [ -n "$d" ] && { printf '%s\n' "$d"; found=1; }
+  done
+  [ "$found" -eq 0 ] && printf 'src\n'
+  return 0
+}
+
 # unfilled <cmd> — true se o comando é placeholder não preenchido do template
 # (vazio ou contendo '...'), mesma regra do check-gates.sh
 unfilled() { local c="$1"; [ -z "$(printf '%s' "$c" | tr -d '[:space:]')" ] && return 0; case "$c" in *'...'*) return 0;; esac; return 1; }

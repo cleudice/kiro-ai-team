@@ -7,10 +7,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 INSTALL="$ROOT/install.sh"
 FAIL=0; N=0
 
-pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
-fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
-assert_exists() { [ -e "$1" ] && pass "existe: $1" || fail "ausente: $1"; }
-assert_absent()  { [ -e "$1" ] && fail "não deveria existir: $1" || pass "ausente (correto): $1"; }
+. "$HERE/lib.sh"   # harness comum: pass/fail/expect_exit/assert_*
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

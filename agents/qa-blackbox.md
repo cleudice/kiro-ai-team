@@ -1,5 +1,5 @@
 ---
-description: "Escreve testes de aceitação APENAS a partir da spec. Proibido de ler src/ — não pode escrever testes lisonjeiros."
+description: "Escreve testes de aceitação APENAS a partir da spec. Proibido de ler o código de implementação (diretórios da linha Código-fonte: do tech.md, default src/) — não pode escrever testes lisonjeiros."
 tools: [read, write, shell]
 resources:
   - skill://write-blackbox-tests

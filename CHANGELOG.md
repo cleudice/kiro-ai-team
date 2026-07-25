@@ -6,7 +6,36 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
-Sem mudanças pendentes desde o `[1.9.0]` abaixo.
+Sem mudanças pendentes desde o `[1.10.0]` abaixo.
+
+## [1.10.0] — 2026-07-25
+
+Release da análise crítica do ecossistema: fecha as três garantias que ainda furavam em silêncio — o isolamento black-box valia só para `src/` literal (errado para 2 dos 3 stacks suportados), o vínculo evidência↔commit era pulado sem aviso quando a branch não resolvia, e o vocabulário de trilho tinha um valor (`spec-completa`) que nenhum script reconhecia. Também corta gordura estrutural (skill redundante, harness de teste copiado 5×, guards duplicados byte-a-byte).
+
+### Adicionado
+
+- **`Código-fonte:` no `tech.md` — diretórios de implementação configuráveis** (default `src/`): o isolamento black-box inteiro (worktree `--qa`, `qa-blackbox-guard.sh`, `readonly-guard.sh`) dependia do literal `src/` — num repo Flutter (`lib/`) ou WebForms legado (raiz/módulos), o worktree QA baixava o código inteiro e os guards nunca disparavam, silenciosamente. Agora `worktree.sh` e os guards leem a linha `Código-fonte:` (lista separada por espaço; helper `code_dirs()` em `hooks/scripts/lib.sh`); a barreira segue o stack, não o literal. Testes com `lib/` em `test-worktree.sh` e `test-hooks.sh`.
+- **`--allow-missing-branch "<motivo>"`** em `check-gates.sh`: sem branch `pbi/<ID>` resolvível, o vínculo evidência↔commit (B2) era **pulado em silêncio** — PBI feito em branch com outro nome, ou branch já deletada, virava aprovação sem vínculo nenhum (a única checagem do sistema que degradava para "passa" por omissão, contra a regra da 1.9). Agora reprova por padrão; o escape é explícito e registrado no `gate.md`, como todos os outros.
+- **Validação de `--track`**: valor fora de `feature|manutencao` era engolido pelo `else` do G0 e virava trilho feature mudo — agora é `exit 2` com mensagem, mesma postura do `install.sh` com `--scope`/`--stack`.
+- **Lock (`mkdir`, portável) no `bump-counter`**: o read-modify-write de `.merge-count` perdia contagem com dois merges concorrentes; a serialização era só convenção.
+- **`hooks/scripts/guard-common.sh`** — extração de payload e casamento com os diretórios de código, únicos; `qa-blackbox-guard.sh` × `readonly-guard.sh` carregavam ~28 linhas byte-a-byte idênticas (a mesma classe de duplicação que motivou o `lib.sh` da 1.9, um nível acima).
+- **`tests/lib.sh`** — harness (`pass`/`fail`/`expect_exit`/`assert_*`) único; estava copiado nas 5 suítes.
+- **Testes de G0** (`test-check-gates.sh`): era o único gate com zero casos — ausente avisa sem bloquear, draft `APROVADO` reconhecido, trilho manutenção não o avalia.
+- **Backup no installer**: `quality-gates.md`/`workflow.md`/`escalation-rules.md`/guidelines customizados localmente eram sobrescritos no `--update` sem aviso nem cópia; agora, se o arquivo difere do central, a versão anterior vai para `.bak` com aviso. Installer também aplica `chmod +x` nos scripts copiados (a forma `.kiro/scripts/worktree.sh start X` citada em prompts dependia do bit sobreviver ao `cp`).
+- **Ledger registra o `--test-cmd` executado** — `tech.md` é código executável (`bash -c`); `SECURITY.md` agora declara essa superfície com todas as letras (tech.md e `.kiro-ai-team-paths` exigem revisão de PR como mudança de CI) e cada execução dos gates deixa o comando auditável em `.gate-ledger`.
+
+### Corrigido
+
+- **Vocabulário de trilho unificado de verdade**: a 1.9.0 declarou `tasks-minimas` → `manutencao`, mas o lado feature ficou pela metade — `triage-issue` e o brief do PBI-FEATURE ainda emitiam `Trilho recomendado: spec-completa`, valor que `check-gates.sh` nunca reconheceu. Agora é `feature` nos dois, e a regra do vocabulário está escrita na própria skill.
+- **`preflight-branch.sh` acoplado ao literal `^- [ ]`**: `tasks.md` com bullet `*`/`+` nunca disparava o aviso — exatamente a rigidez que o `task-checkpoint.sh` já tinha corrigido na 1.9 (inconsistência entre scripts irmãos).
+- **Regex de extração do `tech.md` era gulosa** (`extract_cmd` e o parser novo): com um segundo par de crases na mesma linha (ex.: exemplo dentro de comentário HTML do template), capturava o **último** par, não o comando — latente no `task-checkpoint.sh` desde sempre, exposto ao escrever o parser de `Código-fonte:`.
+- **Duas semânticas de "G5" convivendo**: o bloco de gates do `write-tasks` dizia `G5. merge-gate`, enquanto `quality-gates.md` define G5 como a regressão de integração (o merge-gate é o executor de TODOS os gates). Agente lendo `tasks.md` e agente lendo o steering tinham modelos diferentes; o bloco (e os exemplos) agora nomeiam a regressão.
+- **`OPERACAO.md` §3 mentia sobre o `PBI-EXEMPLO`** ("brief + spec + evidência dos 5 gates"): o exemplo é trilho manutenção — não tem `requirements.md`/`design.md`, e G5 é dispensado por `--skip-g5`. A descrição agora bate com o fixture; `hooks/VERIFY.md` apontava para um "§1.2" que não existe; a tabela de ciclo de vida (§11) ganhou a linha do `.merge-count` (gerado e gitignorado, mas ausente do inventário).
+
+### Removido
+
+- **Skill `triage-crash`** (13 linhas): era `triage-issue` com origem `crashlytics` — ela própria declarava "saída SEMPRE no formato padrão de brief". Fundida como passo da `triage-issue` (mesmos triggers na description); sai do `orchestrator.json` e é podada nos projetos pelo manifesto no `--update`. Mapa em `docs/archive/MIGRATION-v1.md`.
+- **Tabela de renomeações v1 do README** (10% do arquivo, arqueologia para quem chega hoje) — movida para `docs/archive/MIGRATION-v1.md`; no lugar entrou **"Primeiros 5 minutos"**, o passo-a-passo pós-instalação que o README nunca teve (delegava tudo ao OPERACAO.md sem dizer nem o primeiro passo).
 
 ## [1.9.0] — 2026-07-25
 

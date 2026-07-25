@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-gates.sh — verificação DETERMINÍSTICA dos gates (exit 0 = pode mesclar)
 # uso:
-#   check-gates.sh <PBI-ID> <slug> [--test-cmd "cmd"] [--repo <dir>] [--track manutencao] [--g5-log <arquivo>] [--skip-g5 "<motivo>"] [--no-new-criteria "<motivo>"] [--allow-blocked "<motivo>"]
+#   check-gates.sh <PBI-ID> <slug> [--test-cmd "cmd"] [--repo <dir>] [--track feature|manutencao] [--g5-log <arquivo>] [--skip-g5 "<motivo>"] [--no-new-criteria "<motivo>"] [--allow-blocked "<motivo>"] [--allow-missing-branch "<motivo>"]
 #   check-gates.sh bump-counter [--repo <dir>]     # rodar APÓS o merge efetivo
 #   check-gates.sh reset-counter [--repo <dir>]    # rodar APÓS a auditoria: zera o contador e grava o marco em docs/reviews/.last-audit
 #
@@ -23,9 +23,12 @@
 # (commitar a própria evidência depois da revisão não invalida o vínculo).
 # Sem isso, aprovar em um commit e commitar mais código depois no mesmo PBI passava
 # no gate sem que nada tivesse revisado o código novo — a evidência era atemporal.
-# Sem branch pbi/<PBI-ID> resolvível (uso manual/exemplo), a checagem é pulada.
+# Sem branch pbi/<PBI-ID> resolvível, a checagem REPROVA (antes era pulada em
+# silêncio: PBI feito em branch com outro nome, ou branch já deletada, virava
+# aprovação sem vínculo nenhum). Uso manual/exemplo: escape explícito e registrado
+# com --allow-missing-branch "<motivo>", mesmo padrão dos demais escapes.
 set -uo pipefail
-REPO=""; TESTCMD=""; TRACK="feature"; G5LOG=""; SKIPG5=""; NONEWCRIT=""; ALLOWBLOCKED=""
+REPO=""; TESTCMD=""; TRACK="feature"; G5LOG=""; SKIPG5=""; NONEWCRIT=""; ALLOWBLOCKED=""; ALLOWMISSINGBRANCH=""
 case "${1:-}" in
   bump-counter)  MODE=counter; shift;;
   reset-counter) MODE=reset;   shift;;
@@ -35,7 +38,12 @@ while [ $# -gt 0 ]; do case "$1" in
   --repo) REPO="$2"; shift 2;; --test-cmd) TESTCMD="$2"; shift 2;; --track) TRACK="$2"; shift 2;;
   --g5-log) G5LOG="$2"; shift 2;; --skip-g5) SKIPG5="$2"; shift 2;;
   --no-new-criteria) NONEWCRIT="$2"; shift 2;; --allow-blocked) ALLOWBLOCKED="$2"; shift 2;;
+  --allow-missing-branch) ALLOWMISSINGBRANCH="$2"; shift 2;;
   *) echo "arg desconhecido: $1"; exit 2;; esac; done
+# --track fora do vocabulário caía no else do G0 e seguia sem reclamar — um typo
+# ('manutenção' acentuado, 'spec-completa' legado) virava trilho feature mudo.
+# Mesma postura do install.sh com --scope/--stack: valor desconhecido é erro.
+case "$TRACK" in feature|manutencao) ;; *) echo "erro: --track '$TRACK' desconhecido — valores aceitos: feature | manutencao"; exit 2;; esac
 FAIL=0
 ok(){ printf '  ✔ %s\n' "$1"; }; bad(){ printf '  ✘ %s\n' "$1"; FAIL=1; }
 
@@ -59,7 +67,17 @@ if [ "$MODE" = "counter" ] || [ "$MODE" = "reset" ]; then
     echo "contador zerado; marco gravado em $R/.last-audit"
     exit 0
   fi
+  # lock via mkdir (atômico e portável): o read-modify-write abaixo perdia uma
+  # contagem se dois bump-counter rodassem juntos. O merge é serializado por
+  # convenção, mas convenção não é garantia — 5s de espera e depois assume stale.
+  LOCKDIR="$R/.merge-count.lock"; _i=0
+  while ! mkdir "$LOCKDIR" 2>/dev/null; do
+    _i=$((_i+1))
+    if [ "$_i" -ge 50 ]; then echo "  ⚠ lock $LOCKDIR preso há >5s — assumindo stale e prosseguindo"; break; fi
+    sleep 0.1 2>/dev/null || sleep 1
+  done
   C=$(( $(cat "$R/.merge-count" 2>/dev/null || echo 0) + 1 )); echo "$C" > "$R/.merge-count"
+  rmdir "$LOCKDIR" 2>/dev/null || true
   echo "merges desde a última auditoria: $C"
   if [ "$C" -ge 5 ]; then echo "⚠ AUDITORIA DEVIDA: execute audit-integration (auditor) e rearme com: check-gates.sh reset-counter"; fi
   exit 0
@@ -105,7 +123,11 @@ if [ -n "$BRANCH_SHA" ]; then
   [ -z "$SHA" ] && SHA="$BRANCH_SHA"
 else
   SHA=""
-  echo "  ℹ branch pbi/$PBI não resolvida — checagem de vínculo evidência↔commit (linha 'Commit: <sha>') pulada (uso manual/exemplo)"
+  if [ -n "$ALLOWMISSINGBRANCH" ]; then
+    ok "vínculo evidência↔commit dispensado explicitamente (sem branch pbi/$PBI) — motivo: $ALLOWMISSINGBRANCH"
+  else
+    bad "branch pbi/$PBI não resolvida — vínculo evidência↔commit (B2, linha 'Commit: <sha>') impossível de verificar; PBI em branch com outro nome ou já deletada virava aprovação sem vínculo. Uso manual/exemplo: declare com --allow-missing-branch \"<motivo>\" (fica registrado no gate.md)"
+  fi
 fi
 # assert_commit <arquivo> <label> — exige 'Commit: <sha>' cujo valor seja prefixo
 # do último commit de CÓDIGO em pbi/<PBI-ID> ($SHA acima). Sem $SHA (checagem
@@ -217,11 +239,12 @@ write_gate_md() {
     [ -n "$SKIPG5" ]       && printf 'G5 dispensado via --skip-g5. Motivo: %s\n' "$SKIPG5"
     [ -n "$NONEWCRIT" ]    && printf 'G1 dispensado via --no-new-criteria. Motivo: %s\n' "$NONEWCRIT"
     [ -n "$ALLOWBLOCKED" ] && printf 'G2 com BLOCKED aceito via --allow-blocked. Motivo: %s\n' "$ALLOWBLOCKED"
+    [ -n "$ALLOWMISSINGBRANCH" ] && printf 'B2 (vínculo evidência↔commit) dispensado via --allow-missing-branch. Motivo: %s\n' "$ALLOWMISSINGBRANCH"
     printf '<!-- /check-gates:escapes -->\n'
   } >> "$tmp"
   mv "$tmp" "$f"
 }
-if [ $FAIL -eq 0 ] && { [ -n "$SKIPG5" ] || [ -n "$NONEWCRIT" ] || [ -n "$ALLOWBLOCKED" ]; }; then
+if [ $FAIL -eq 0 ] && { [ -n "$SKIPG5" ] || [ -n "$NONEWCRIT" ] || [ -n "$ALLOWBLOCKED" ] || [ -n "$ALLOWMISSINGBRANCH" ]; }; then
   write_gate_md
 fi
 
@@ -232,9 +255,11 @@ fi
 LEDGER_ROOT="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{sub(/^worktree /,""); print; exit}')"
 LEDGER_DIR="${LEDGER_ROOT:-.}/docs/reviews"
 mkdir -p "$LEDGER_DIR"
-printf '%s PBI=%s slug=%s track=%s G1=%s G2=%s G3=%s G4=%s G5=%s resultado=%s\n' \
+# test-cmd vai pro ledger: tech.md é código executável (SECURITY.md) — o registro
+# do que foi rodado em cada execução é o rastro auditável a posteriori.
+printf '%s PBI=%s slug=%s track=%s G1=%s G2=%s G3=%s G4=%s G5=%s resultado=%s test-cmd=%s\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PBI" "$SLUG" "$TRACK" "$G1S" "$G2S" "$G3S" "$G4S" "$G5S" \
-  "$([ $FAIL -eq 0 ] && echo OK || echo REPROVADO)" >> "$LEDGER_DIR/.gate-ledger"
+  "$([ $FAIL -eq 0 ] && echo OK || echo REPROVADO)" "${TESTCMD:-'-'}" >> "$LEDGER_DIR/.gate-ledger"
 
 [ $FAIL -eq 0 ] && { echo "RESULTADO: GATES OK — autorizado a mesclar"; exit 0; } \
                 || { echo "RESULTADO: GATES REPROVADOS — devolver ao papel dono do gate"; exit 1; }

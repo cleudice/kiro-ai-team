@@ -23,4 +23,4 @@ Outros formatos (XLSX, PDF), agendamento de exportação recorrente.
 
 Nenhuma reportada antes.
 
-## Trilho recomendado: spec-completa
+## Trilho recomendado: feature

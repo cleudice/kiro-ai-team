@@ -16,7 +16,9 @@ TECH=".kiro/steering/tech.md"
 # tolerante ao marcador de lista (-, *, +, ou nenhum): acoplar ao literal '^- '
 # quebrava silencioso se o template fosse reformatado.
 extract_cmd() {
-  grep -m1 -E "^[-*+]?[[:space:]]*$1:" "$TECH" 2>/dev/null | sed -n 's/.*`\([^`]*\)`.*/\1/p'
+  # [^`]* (não .*) antes da 1ª crase: .* é guloso e capturaria o último par de
+  # crases da linha se houver comentário com crases depois do comando.
+  grep -m1 -E "^[-*+]?[[:space:]]*$1:" "$TECH" 2>/dev/null | sed -n 's/[^`]*`\([^`]*\)`.*/\1/p'
 }
 
 BUILD="$(extract_cmd Build)"

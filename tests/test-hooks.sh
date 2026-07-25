@@ -10,15 +10,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 HS="$ROOT/hooks/scripts"
 FAIL=0; N=0
 
-pass(){ N=$((N+1)); printf '  ✔ %s\n' "$1"; }
-fail(){ N=$((N+1)); printf '  ✘ %s\n' "$1"; FAIL=1; }
-expect_exit() {
-  local want="$1" desc="$2"; shift 2
-  [ "$1" = "--" ] && shift
-  local out; out="$("$@" 2>&1)"; local got=$?
-  if [ "$got" -eq "$want" ]; then pass "$desc (exit $got)"
-  else fail "$desc (esperado exit $want, veio $got) — saída:"$'\n'"$out"; fi
-}
+. "$HERE/lib.sh"   # harness comum: pass/fail/expect_exit/assert_*
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -104,6 +96,37 @@ expect_exit 0 "readonly-guard: escrita em docs/reviews/ passa" -- \
   bash -c 'printf "%s" "{\"file_path\": \"docs/reviews/PBI-1-code.md\"}" | bash "$1"' _ "$HS/readonly-guard.sh"
 expect_exit 0 "readonly-guard: payload irreconhecível falha ABERTO" -- \
   bash -c 'printf "%s" "???" | bash "$1"' _ "$HS/readonly-guard.sh"
+
+# =========================================================================
+# Código-fonte configurável (tech.md) — o hardcode de src/ quebrava o
+# isolamento em stack cujo código não vive em src/ (Flutter: lib/)
+# =========================================================================
+CD="$TMP/proj-libdir"; mkdir -p "$CD/.kiro/steering"
+git -C "$CD" init -q -b main 2>/dev/null || true
+printf -- '- Código-fonte: `lib/`\n' > "$CD/.kiro/steering/tech.md"
+expect_exit 2 "qa-guard: tech.md com Código-fonte lib/ bloqueia leitura de lib/" -- \
+  bash -c 'cd "$1" && printf "%s" "{\"path\": \"lib/servico/calc.dart\"}" | bash "$2"' _ "$CD" "$HS/qa-blackbox-guard.sh"
+expect_exit 0 "qa-guard: com Código-fonte lib/, src/ deixa de ser protegido (não é código neste projeto)" -- \
+  bash -c 'cd "$1" && printf "%s" "{\"path\": \"src/nota.md\"}" | bash "$2"' _ "$CD" "$HS/qa-blackbox-guard.sh"
+expect_exit 2 "readonly-guard: tech.md com Código-fonte lib/ bloqueia escrita em lib/" -- \
+  bash -c 'cd "$1" && printf "%s" "{\"file_path\": \"lib/app.dart\"}" | bash "$2"' _ "$CD" "$HS/readonly-guard.sh"
+expect_exit 2 "qa-guard: fallback grep também respeita lib/ (payload não-JSON)" -- \
+  bash -c 'cd "$1" && printf "%s" "tool=fs_read arquivo=projeto/lib/main.dart" | bash "$2"' _ "$CD" "$HS/qa-blackbox-guard.sh"
+
+# lib.code_dirs: multi-diretório, placeholder e fallback
+CD2="$TMP/proj-multidir"; mkdir -p "$CD2/.kiro/steering"
+printf -- '- Código-fonte: `src/ web/`\n' > "$CD2/.kiro/steering/tech.md"
+GOT="$(cd "$CD2" && bash -c '. "'"$HS"'/lib.sh"; code_dirs' | tr '\n' ' ')"
+case "$GOT" in "src web "*) pass "lib.code_dirs: lista multi-diretório (src/ web/) resolvida";;
+  *) fail "lib.code_dirs: esperado 'src web', veio: $GOT";; esac
+GOT="$(cd "$TMP" && bash -c '. "'"$HS"'/lib.sh"; code_dirs')"
+case "$GOT" in src) pass "lib.code_dirs: sem tech.md cai no fallback src";;
+  *) fail "lib.code_dirs: fallback esperado 'src', veio: $GOT";; esac
+CD3="$TMP/proj-placeholder-dir"; mkdir -p "$CD3/.kiro/steering"
+printf -- '- Código-fonte: `...`\n' > "$CD3/.kiro/steering/tech.md"
+GOT="$(cd "$CD3" && bash -c '. "'"$HS"'/lib.sh"; code_dirs')"
+case "$GOT" in src) pass "lib.code_dirs: placeholder '...' não preenchido cai no fallback src";;
+  *) fail "lib.code_dirs: placeholder deveria cair em 'src', veio: $GOT";; esac
 
 # =========================================================================
 # task-checkpoint.sh — placeholder do tech.md × comandos reais

@@ -11,4 +11,4 @@
 - [ ] G2. verify-change com evidência — dono: dev-dotnet
 - [ ] G3. review-spec APROVADO — dono: reviewer-spec
 - [ ] G4. review-code APROVADO — dono: reviewer-code
-- [ ] G5. merge-gate — dono: orchestrator
+- [ ] G5. regressão de integração verde — dono: orchestrator (via merge-gate)

@@ -20,7 +20,7 @@ O central é **versionado por tag**; cada projeto instala uma versão e atualiza
 
 ```
             ┌────────────── ENTRADA (multi-tracker) ──────────────┐
-Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-crash
+Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue (issues e crashes)
             └──────────────────────┬──────────────────────────────┘
                                    ▼  docs/issues/<ID>.md (brief normalizado)
                     ┌── trilho FEATURE ──┐        ┌─ trilho MANUTENÇÃO ─┐
@@ -30,7 +30,7 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
                     write-tasks ──────────┴────────┴─ write-tasks (mínimo, orchestrator)
                                    ▼  .kiro/specs/<slug>/tasks.md
     task-preflight + "Start task" nativo (dev-* em worktree)   ∥   write-blackbox-tests (qa-blackbox,
-                                   ▼                        worktree QA sem src/, só lê a spec)
+                                   ▼                        worktree QA sem o código, só lê a spec)
                               verify-change (evidência observada)
                                    ▼
                     review-spec  +  review-code  (sessões limpas)
@@ -45,17 +45,17 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue │ triage-cr
 
 ## Papéis (agents/)
 
-| Agente          | Faz                                                  | Não faz                 |
-| --------------- | ---------------------------------------------------- | ----------------------- |
-| `orchestrator`  | roteia, acompanha estado, executa merge-gate         | escrever código         |
-| `spec-analyst`  | brief → spec Kiro (EARS); pergunta antes de congelar | implementar             |
-| `dev-dotnet`    | .NET 8/10, Clean Arch, CQRS                          | tocar spec de outro PBI |
-| `dev-webforms`  | WebForms 4.8, ADO.NET, PL/SQL                        | idem                    |
-| `dev-flutter`   | Flutter/Dart + Firebase                              | idem                    |
-| `qa-blackbox`   | testes só a partir da spec                           | **ler `src/`**          |
-| `reviewer-spec` | diff vs requirements.md                              | ler conversa dos devs   |
-| `reviewer-code` | qualidade, convenção, segurança                      | aprovar requisito       |
-| `auditor`       | auditoria pós-integração do repo inteiro             | corrigir (só reporta)   |
+| Agente          | Faz                                                  | Não faz                                                                          |
+| --------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `orchestrator`  | roteia, acompanha estado, executa merge-gate         | escrever código                                                                  |
+| `spec-analyst`  | brief → spec Kiro (EARS); pergunta antes de congelar | implementar                                                                      |
+| `dev-dotnet`    | .NET 8/10, Clean Arch, CQRS                          | tocar spec de outro PBI                                                          |
+| `dev-webforms`  | WebForms 4.8, ADO.NET, PL/SQL                        | idem                                                                             |
+| `dev-flutter`   | Flutter/Dart + Firebase                              | idem                                                                             |
+| `qa-blackbox`   | testes só a partir da spec                           | **ler o código de implementação** (`Código-fonte:` do `tech.md`; default `src/`) |
+| `reviewer-spec` | diff vs requirements.md                              | ler conversa dos devs                                                            |
+| `reviewer-code` | qualidade, convenção, segurança                      | aprovar requisito                                                                |
+| `auditor`       | auditoria pós-integração do repo inteiro             | corrigir (só reporta)                                                            |
 
 > 📖 Setup, operação diária e referência completa (agentes, skills, gates, ciclo de vida dos artefatos): [OPERACAO.md](OPERACAO.md)
 
@@ -79,15 +79,14 @@ Steering e docs/ são sempre por projeto (steering do Kiro é por workspace). De
 
 Copia agentes + skills + steering-base, instancia os templates de steering do projeto (se ausentes) e grava a versão em `.kiro/.kiro-ai-team-version`.
 
+## Primeiros 5 minutos (depois de instalar)
+
+1. **Preencha `.kiro/steering/tech.md`** — em especial `Testes:` (o que os gates executam) e `Código-fonte:` (os diretórios que o isolamento black-box protege; Flutter = `lib/`). Repo desconhecido? Peça `reverse-engineer-project` ao `orchestrator` e só confira.
+2. **Escreva 5–10 linhas em `steering/product.md`** (o que é este produto).
+3. **Ensaie sem risco**: rode o comando de `examples/PBI-EXEMPLO/README.md` e veja `GATES OK` de verdade.
+4. **Primeiro PBI real**: abra uma aba com o `orchestrator` e diga "triagem da `<ID do tracker>`" (ou cole o texto da issue). Ele gera o brief e recomenda o trilho; siga o passo a passo de [OPERACAO.md](OPERACAO.md) §2.
+5. Regra que não pode quebrar: **cada papel em aba de chat nova** — trocar o agente na mesma aba mantém o histórico e mata a revisão adversarial.
+
 ## Renomeações (v1 → kiro-ai-team)
 
-| Antes                      | Agora                                | Motivo                                                                                                                              |
-| -------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| scrum-master               | `orchestrator`                       | descreve a função, não a cerimônia                                                                                                  |
-| requirements-analyst       | `spec-analyst`                       | alinhado ao conceito de spec do Kiro                                                                                                |
-| dev-legacy                 | `dev-webforms`                       | nome pelo stack, não pelo juízo                                                                                                     |
-| test-writer-blackbox       | `qa-blackbox`                        | papel curto e reutilizável                                                                                                          |
-| reviewer-requisitos/codigo | `reviewer-spec` / `reviewer-code`    | padrão `reviewer-<eixo>`                                                                                                            |
-| write-prd / plan-change    | `write-requirements` / `write-tasks` | espelham os arquivos nativos do Kiro                                                                                                |
-| audit-sprint               | `audit-integration`                  | nomeia o que audita                                                                                                                 |
-| implement-task             | `task-preflight`                     | deixou de "implementar" — quem executa a task é o "Start task" nativo do Kiro; o skill só prepara (worktree/build) e faz checkpoint |
+Instalação vinda da v1? O mapa completo de renomeações (agentes e skills) e o procedimento de migração estão em [docs/archive/MIGRATION-v1.md](docs/archive/MIGRATION-v1.md).

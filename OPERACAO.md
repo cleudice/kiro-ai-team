@@ -65,7 +65,7 @@ Você conversa quase só com o **orchestrator**. Fluxo típico:
 
 > "orchestrator, faça a triagem da PROJ-1234"
 
-Ele roda `triage-issue` (busca no Jira/Azure Boards/GitHub via MCP, ou você cola o texto), gera o brief em `docs/issues/` e recomenda o trilho. Crash do app? `triage-crash` gera o brief no mesmo formato. Se o hook `issue-intake` estiver ativo, um brief novo já dispara essa triagem sozinho.
+Ele roda `triage-issue` (busca no Jira/Azure Boards/GitHub via MCP, crash via MCP `firebase`, ou você cola o texto), gera o brief em `docs/issues/` e recomenda o trilho. Se o hook `issue-intake` estiver ativo, um brief novo já dispara essa triagem sozinho.
 
 ### Passo 2 — Spec
 
@@ -79,14 +79,14 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 
 ```bash
 .kiro/scripts/worktree.sh start PROJ-1234        # worktree do dev (idempotente — reusa se existir)
-.kiro/scripts/worktree.sh start PROJ-1234 --qa   # worktree do QA: branch qa/pbi/<ID>, checkout SEM src/
+.kiro/scripts/worktree.sh start PROJ-1234 --qa   # worktree do QA: branch qa/pbi/<ID>, checkout SEM os diretórios de código (Código-fonte: do tech.md; default src/)
 ```
 
 O **dono único** deste passo é o orchestrator (ou você, manualmente) — o script é idempotente, então quem chegar em segundo reusa em vez de travar.
 
 - No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "prepare o worktree do PBI PROJ-1234" (`task-preflight`: confirma branch + build verde). O hook `preflight-branch` já avisa sozinho no início da sessão se a branch atual não bater com uma spec ativa.
 - No painel da spec (`.kiro/specs/<slug>/tasks.md`): clique **"Start task"** nativo do Kiro em cada item, na ordem — é o Kiro quem implementa. Após cada `[x]`: peça "checkpoint" ao mesmo agente (build/teste do módulo tocado). O hook `task-checkpoint` mecaniza isso quando instalado, mas é **experimental** até `hooks/VERIFY.md` confirmar o trigger `PostTaskExec` — não conte com ele sozinho.
-- "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele trabalha no **worktree QA** (`--qa`, checkout sem `src/` — isolamento físico, não só regra de prompt) e lê só a spec (reforço adicional: hook `qa-blackbox-guard`, defesa em profundidade que falha aberto) — não interfira nisso, é o mecanismo central. Antes do merge-gate, os testes da branch `qa/pbi/<ID>` são mesclados em `pbi/<ID>`.
+- "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele trabalha no **worktree QA** (`--qa`, checkout sem os diretórios de código — linha `Código-fonte:` do `tech.md`, default `src/`; isolamento físico, não só regra de prompt) e lê só a spec (reforço adicional: hook `qa-blackbox-guard`, defesa em profundidade que falha aberto) — não interfira nisso, é o mecanismo central. Antes do merge-gate, os testes da branch `qa/pbi/<ID>` são mesclados em `pbi/<ID>`.
 - Dev terminou → `verify-change` com evidência real (não aceite "pronto").
 
 ### Passo 4 — Qualidade e merge
@@ -115,16 +115,16 @@ Quem executa cada etapa atualiza a linha; nunca pular direto pra `done`. É conv
 
 ## 3. Quando usar o quê
 
-| Situação                                                                        | Caminho                                                                                   |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Tela/endpoint novo, regra de negócio, ≥ meio dia, toca contrato público         | **Trilho feature** (spec completa)                                                        |
-| Bugfix com reprodução, ajuste pontual, crash Crashlytics                        | **Trilho manutenção** (tasks mínimas; gates 2–5 obrigatórios; G1 se houver critério novo) |
-| Spike, protótipo descartável, dúvida de código, ajuste de 5 min em texto/config | **Kiro puro, sem o time** — governança em protótipo é desperdício de tokens               |
-| A cada 5 merges                                                                 | `audit-integration` (o merge-gate agenda sozinho)                                         |
-| Mesma falha pela 2ª vez                                                         | `retrospective` na hora — vira regra em `retro-learnings.md`                              |
-| Repo desconhecido / onboarding                                                  | `reverse-engineer-project` antes de qualquer PBI                                          |
-| Quer ensaiar o ciclo sem risco                                                  | `examples/PBI-EXEMPLO/` — brief + spec + evidência dos 5 gates prontos pra estudo         |
-| Quer um modelo de requirements EARS + design com contratos (trilho feature)     | `examples/PBI-FEATURE/` — brief, requirements, design e tests-spec encadeados por R#.#    |
+| Situação                                                                        | Caminho                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tela/endpoint novo, regra de negócio, ≥ meio dia, toca contrato público         | **Trilho feature** (spec completa)                                                                                                                                                                                   |
+| Bugfix com reprodução, ajuste pontual, crash Crashlytics                        | **Trilho manutenção** (tasks mínimas; gates 2–5 obrigatórios; G1 se houver critério novo)                                                                                                                            |
+| Spike, protótipo descartável, dúvida de código, ajuste de 5 min em texto/config | **Kiro puro, sem o time** — governança em protótipo é desperdício de tokens                                                                                                                                          |
+| A cada 5 merges                                                                 | `audit-integration` (o merge-gate agenda sozinho)                                                                                                                                                                    |
+| Mesma falha pela 2ª vez                                                         | `retrospective` na hora — vira regra em `retro-learnings.md`                                                                                                                                                         |
+| Repo desconhecido / onboarding                                                  | `reverse-engineer-project` antes de qualquer PBI                                                                                                                                                                     |
+| Quer ensaiar o ciclo sem risco                                                  | `examples/PBI-EXEMPLO/` — brief + tasks (trilho manutenção, sem spec formal) + evidência dos gates G1–G4; G5 e o vínculo commit usam escape explícito (`--skip-g5`/`--allow-missing-branch`) por não ser um PBI real |
+| Quer um modelo de requirements EARS + design com contratos (trilho feature)     | `examples/PBI-FEATURE/` — brief, requirements, design e tests-spec encadeados por R#.#                                                                                                                               |
 
 **Regra de bolso:** vai para produção → passa pelos gates. É descartável → não passe.
 
@@ -195,7 +195,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 - **Entrada**: `requirements.md` + contratos de `design.md`. **Saída**: `docs/tests-spec/<slug>.md` + código de teste.
 - **Não faz**: não lê `src/`, `docs/context/` nem a conversa dos devs. Não ajusta teste para acomodar implementação.
 - **Regra especial**: se o PBI não tiver nenhuma task de `dev-*` (design decidiu zero mudança em `src/`), ele também é dono do gate G2 — roda `verify-change` e produz `docs/reviews/<PBI>-verify.md`. Trabalha sempre dentro do worktree do PBI, nunca no working tree principal. Nomes/comentários do código de teste seguem o idioma do código-fonte real (detectado pelos contratos do `design.md`), não o idioma padrão do time.
-- **Mecanização (defesa em profundidade)**: um hook `preToolUse` embutido no próprio `agents/qa-blackbox.json` tenta bloquear leitura de `src/`. O contrato exato de payload que o Kiro passa a esse tipo de hook não é documentado publicamente — o script falha ABERTO (não bloqueia) quando não reconhece o formato, então isto reforça a regra, não a garante sozinho.
+- **Mecanização (defesa em profundidade)**: um hook `preToolUse` embutido no próprio `agents/qa-blackbox.json` tenta bloquear leitura dos diretórios de código (`Código-fonte:` do `tech.md`; default `src/`). O contrato exato de payload que o Kiro passa a esse tipo de hook não é documentado publicamente — o script falha ABERTO (não bloqueia) quando não reconhece o formato, então isto reforça a regra, não a garante sozinho.
 
 ### `reviewer-spec` / `reviewer-code`
 
@@ -220,7 +220,6 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 ### Entrada
 
 - **`triage-issue`** — normaliza qualquer issue (Jira/Azure Boards/GitHub/texto colado) no brief padrão, inclusive descrevendo textualmente anexos de imagem. Dono: `orchestrator`. Saída: `docs/issues/<TRACKER>-<ID>.md`.
-- **`triage-crash`** — investiga crash via MCP Firebase, brief no mesmo formato. Dono: `orchestrator`. Saída: `docs/issues/CRASH-<id>.md`.
 - **`reverse-engineer-project`** — mapeia repo desconhecido → `docs/context/` por eixos + preenche `tech.md`/`structure.md`. Dono: `orchestrator`. Saída: 8 arquivos em `docs/context/`.
 
 ### Spec (trilho feature)
@@ -241,7 +240,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
   ENGINE="$(bash .kiro/scripts/kiro-paths.sh)"   # resolve a raiz da engine — mesmo caminho no escopo project; aponta pra $KIRO_HOME em hybrid/global
   bash "$ENGINE/skills/merge-gate/scripts/check-gates.sh" <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
   ```
-  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito; os outros escapes são `--no-new-criteria "<motivo>"` (G1, manutenção) e `--allow-blocked "<motivo>"` (G2 BLOCKED) — ver §9. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o último commit de **código** de `pbi/<PBI>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam) — evidência aprovada num commit anterior não sobrevive a código novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` (reprovação registrada pelo orchestrator, ou bloco de escapes gravado pelo próprio script quando a execução verde usou dispensa). Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega — hoje ninguém o consome automaticamente; é insumo humano e é local por clone, como o contador).
+  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito; os outros escapes são `--no-new-criteria "<motivo>"` (G1, manutenção), `--allow-blocked "<motivo>"` (G2 BLOCKED) e `--allow-missing-branch "<motivo>"` (uso manual/exemplo sem branch `pbi/<ID>` — sem a flag, branch não resolvível REPROVA; antes era pulado em silêncio) — ver §9. `--track` só aceita `feature`|`manutencao` (valor desconhecido é erro, não default mudo). G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o último commit de **código** de `pbi/<PBI>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam) — evidência aprovada num commit anterior não sobrevive a código novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` (reprovação registrada pelo orchestrator, ou bloco de escapes gravado pelo próprio script quando a execução verde usou dispensa). Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega — hoje ninguém o consome automaticamente; é insumo humano e é local por clone, como o contador).
 - **`resolve-issue`** — fecha o ciclo no tracker de origem. Dono: `orchestrator`, automático ao fim do `merge-gate`.
 
 ### Loops
@@ -267,9 +266,9 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 Antes dos gates numerados existe o **G0** (trilho feature): `docs/reviews/<PBI>-spec-draft.md` com `Veredicto: APROVADO` — revisão adversarial da spec pelo `reviewer-spec` em modo draft, antes de `write-tasks` congelar. Nesta versão o `check-gates.sh` só avisa quando ausente (vira bloqueante na 2.0); sem ele, a spec seria a única etapa do ciclo aprovada por quem a escreveu.
 
-Escapes explícitos (todos registrados por `check-gates.sh` em `docs/reviews/<PBI>-gate.md`, num bloco idempotente entre marcadores, e só quando a execução termina verde): `--skip-g5 "<motivo>"` (sem ambiente de integração), `--no-new-criteria "<motivo>"` (manutenção sem critério de aceitação novo — sem a flag, G1 reprova por ausência de `docs/tests-spec/<slug>.md`), `--allow-blocked "<motivo>"` (G2 com `BLOCKED` legítimo por falta de ambiente de smoke — ex.: WebForms/IIS sem instância local).
+Escapes explícitos (todos registrados por `check-gates.sh` em `docs/reviews/<PBI>-gate.md`, num bloco idempotente entre marcadores, e só quando a execução termina verde): `--skip-g5 "<motivo>"` (sem ambiente de integração), `--no-new-criteria "<motivo>"` (manutenção sem critério de aceitação novo — sem a flag, G1 reprova por ausência de `docs/tests-spec/<slug>.md`), `--allow-blocked "<motivo>"` (G2 com `BLOCKED` legítimo por falta de ambiente de smoke — ex.: WebForms/IIS sem instância local), `--allow-missing-branch "<motivo>"` (sem branch `pbi/<ID>` resolvível o vínculo evidência↔commit é impossível de verificar e o gate REPROVA — o escape existe pra uso manual/exemplo, nunca pro fluxo real).
 
-**Por que mecanizar não basta (defesa em profundidade)**: os hooks por-agente (`qa-blackbox-guard.sh`, `readonly-guard.sh`) tentam bloquear leitura/escrita de `src/` fora do papel, mas o contrato exato de payload que o Kiro passa a um hook `preToolUse` não é documentado publicamente — os scripts falham ABERTO (não bloqueiam) quando não reconhecem o formato. Eles reforçam a regra; a fonte da verdade continua sendo o prompt do agente + a revisão adversarial em sessão limpa. O isolamento físico do qa-blackbox (worktree `--qa` sem `src/`) é a única barreira estrutural de verdade.
+**Por que mecanizar não basta (defesa em profundidade)**: os hooks por-agente (`qa-blackbox-guard.sh`, `readonly-guard.sh`) tentam bloquear leitura/escrita dos diretórios de código (`Código-fonte:` do `tech.md`; default `src/`) fora do papel, mas o contrato exato de payload que o Kiro passa a um hook `preToolUse` não é documentado publicamente — os scripts falham ABERTO (não bloqueiam) quando não reconhecem o formato. Eles reforçam a regra; a fonte da verdade continua sendo o prompt do agente + a revisão adversarial em sessão limpa. O isolamento físico do qa-blackbox (worktree `--qa` sem os diretórios de `Código-fonte:`) é a única barreira estrutural de verdade — por isso a linha `Código-fonte:` do `tech.md` precisa estar certa pro stack (Flutter: `lib/`; WebForms legado: os módulos reais), senão a barreira não protege nada.
 
 Script único, determinístico: `skills/merge-gate/scripts/check-gates.sh`. Reprovação em qualquer G devolve ao dono da coluna 3 — o `merge-gate` não julga, só confere. `bump-counter` (rodado após merge efetivo) agenda `audit-integration` a cada 5; `reset-counter` (rodado pelo auditor ao fim da auditoria) zera o contador e grava o marco (data+SHA) em `docs/reviews/.last-audit` — é esse marco que delimita a janela da próxima auditoria.
 
@@ -306,7 +305,7 @@ Esses arquivos valem **mesmo sem você invocar skill nenhuma** — é por isso q
 | `.kiro/specs/<slug>/requirements.md`                 | `write-requirements` (spec-analyst)                                 | por PBI feature       | congelado; mudança só via nova rodada com humano + changelog no rodapé                                                                             | qa-blackbox, reviewer-spec, devs        |
 | `.kiro/specs/<slug>/design.md`                       | `write-design`                                                      | por PBI feature       | idem (decisões novas viram entrada, não edição silenciosa)                                                                                         | qa-blackbox (contratos), devs           |
 | `.kiro/specs/<slug>/tasks.md`                        | `write-tasks`                                                       | por PBI (2 trilhos)   | execução é o "Start task" nativo do Kiro (marca `[x]`); `task-preflight`/hooks cercam com pré-flight/checkpoint; escopo não muda sem voltar à spec | dev (via nativo), orchestrator          |
-| `docs/issues/<ID>.md`                                | `triage-issue`/`triage-crash`/`audit-integration`                   | entrada de trabalho   | a linha `status:` avança a cada etapa (quem executa atualiza — ver §2); `resolve-issue` anexa `## Resolução`                                       | orchestrator (estado), spec-analyst     |
+| `docs/issues/<ID>.md`                                | `triage-issue`/`audit-integration`                                  | entrada de trabalho   | a linha `status:` avança a cada etapa (quem executa atualiza — ver §2); `resolve-issue` anexa `## Resolução`                                       | orchestrator (estado), spec-analyst     |
 | `docs/tests-spec/<slug>.md`                          | `write-blackbox-tests` (qa-blackbox)                                | por PBI               | qa-blackbox apenas                                                                                                                                 | merge-gate (G1), reviewer-spec          |
 | `docs/reviews/<PBI>-{verify,spec,code,gate}.md`      | verify-change / revisores / merge-gate                              | por PBI               | ninguém (é registro, não documento vivo)                                                                                                           | merge-gate, auditor, humano             |
 | `docs/reviews/.gate-ledger`                          | `check-gates.sh`                                                    | toda execução         | ninguém (append-only; local por clone — gitignorado)                                                                                               | humano (decidir se algum gate compensa) |
@@ -348,7 +347,7 @@ Gerado 1x pelo `reverse-engineer-project`; cada eixo ≤ ~1 página com caminhos
 | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | specs requirements/design/tasks, execução de tasks                                                                | conteúdo/formato EARS + gates embutidos via skills `write-*`                      |
 | steering workspace + global (`~/.kiro/steering`), AGENTS.md, inclusion modes                                      | as 3 camadas, templates, política de sobrescrita                                  |
-| agents (CLI `.json` / IDE `.md`+frontmatter), skills SKILL.md, hooks (globais + por-agente), MCP (user+workspace) | os 9 papéis, 15 skills, fragmentos, escopos do installer, gerador `.md`↔`.json`   |
+| agents (CLI `.json` / IDE `.md`+frontmatter), skills SKILL.md, hooks (globais + por-agente), MCP (user+workspace) | os 9 papéis, 14 skills, fragmentos, escopos do installer, gerador `.md`↔`.json`   |
 | "Generate Steering Docs" (foundation files)                                                                       | `reverse-engineer-project` (docs/context por eixos + preenchimento dos templates) |
 
 Quirks conhecidos consolidados: fileMatch global não injeta; symlink em `~/.kiro` ignorado; IDE ignora `KIRO_HOME`; workspace vence global; CLI lê `.json`/IDE lê `.md` em `.kiro/agents/` (kirodotdev/Kiro#8040 — por isso o installer grava os dois); hooks por-agente usam nomes internos de tool (`fs_read`, não `read`) e seu contrato de payload não é documentado publicamente.
@@ -358,7 +357,7 @@ Quirks conhecidos consolidados: fileMatch global não injeta; symlink em `~/.kir
 ## 15. Fluxo completo em uma linha por etapa
 
 ```
-triage-issue/triage-crash → write-requirements → write-design → G0 (review-spec draft) → write-tasks
+triage-issue → write-requirements → write-design → G0 (review-spec draft) → write-tasks
   → task-preflight + Start task (nativo) ∥ write-blackbox-tests (worktree QA, sem src/)
   → verify-change → review-spec + review-code → merge-gate → resolve-issue
   → (a cada 5 merges) audit-integration + reset-counter → (falha repetida) retrospective
@@ -371,6 +370,7 @@ triage-issue/triage-crash → write-requirements → write-design → G0 (review
 - **`hooks/*.json` copiados pra `.kiro/hooks/`** — o installer nunca os instala (são opcionais); se você copiou algum, **recopie após o update** (os de 1.6 apontavam caminhos que 1.7 corrigiu; 1.9 introduziu `hooks/scripts/lib.sh`, que os scripts novos carregam — o installer o instala, mas JSONs antigos podem chamar scripts antigos).
 - **MCP** — fragmentos são sempre mesclados à mão; releia `mcp/README.md` após updates maiores.
 - **1.8 → 1.9 em específico**: (a) G1 no trilho manutenção agora exige `--no-new-criteria "<motivo>"` quando não há `docs/tests-spec/<slug>.md` — pipelines/atalhos que contavam com a dispensa implícita passam a reprovar; (b) o qa-blackbox passou a trabalhar em worktree próprio (`worktree.sh start <PBI> --qa`); (c) manifesto ganhou o campo `hook_scripts` (o `--uninstall` de instalação pré-1.9 remove os hook-scripts pelo conjunto do central atual, melhor aproximação disponível); (d) surgiu `check-gates.sh reset-counter` — inclua no fim de cada auditoria.
+- **1.9 → 1.10 em específico**: (a) sem branch `pbi/<ID>` resolvível, `check-gates.sh` agora **reprova** o vínculo evidência↔commit — uso manual/exemplo precisa de `--allow-missing-branch "<motivo>"` (antes era pulado em silêncio); (b) `--track` só aceita `feature`|`manutencao` — valor desconhecido é erro (o legado `spec-completa` saiu do vocabulário); (c) preencha a linha **`Código-fonte:`** no `tech.md` de cada projeto (default `src/`; Flutter = `lib/`) — é ela que o worktree `--qa` e os guards passam a respeitar; (d) a skill `triage-crash` foi fundida em `triage-issue` (o `--update` a remove pelo manifesto); (e) o `--update` preserva em `.bak` steering do time customizado localmente antes de sobrescrever.
 - Migração pré-1.5 (`agent-skills`): `docs/archive/MIGRATION-v1.md`.
 
 Ver também: [README](README.md) (arquitetura e por quê) · [mcp/README.md](mcp/README.md) (fragmentos MCP) · [hooks/VERIFY.md](hooks/VERIFY.md) (verificação empírica dos triggers de hook) · `docs/archive/` (documentos históricos).

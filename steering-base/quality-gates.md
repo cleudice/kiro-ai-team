@@ -19,7 +19,7 @@ Um PBI só pode ser mesclado quando TODOS os checks abaixo estiverem registrados
 
 Regras adicionais:
 
-- 1 PBI = 1 worktree = 1 branch `pbi/<ID>`. O qa-blackbox trabalha no worktree QA próprio (`worktree.sh start <PBI> --qa` — branch `qa/pbi/<ID>`, checkout sem `src/`); os testes são mesclados em `pbi/<ID>` antes do merge-gate. Merge sempre serializado pelo orchestrator. Trabalho executado fora do worktree é movido pro worktree/branch correto **antes** do G5 — nunca simular merge a partir do estado solto em `main`.
+- 1 PBI = 1 worktree = 1 branch `pbi/<ID>`. O qa-blackbox trabalha no worktree QA próprio (`worktree.sh start <PBI> --qa` — branch `qa/pbi/<ID>`, checkout sem os diretórios de código: linha `Código-fonte:` do `tech.md`, default `src/`); os testes são mesclados em `pbi/<ID>` antes do merge-gate. Merge sempre serializado pelo orchestrator. Trabalho executado fora do worktree é movido pro worktree/branch correto **antes** do G5 — nunca simular merge a partir do estado solto em `main`.
 - Reprovação em qualquer gate devolve o PBI ao papel de origem com a lista de lacunas.
 - **Trilho manutenção**: gates 2–5 obrigatórios; gate 1 exigido quando houver critério de aceitação novo. A dispensa do G1 é EXPLÍCITA: `--no-new-criteria "<motivo>"` — sem a flag, `docs/tests-spec/<slug>.md` ausente reprova. Ausência de evidência nunca vira aprovação por omissão.
 - **G2 `BLOCKED`**: reprova por padrão; sem ambiente pra observar o comportamento (ex.: legado sem smoke local), o escape explícito é `--allow-blocked "<motivo>"` — registrado em `docs/reviews/<PBI>-gate.md`, como todo escape.

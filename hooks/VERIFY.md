@@ -20,7 +20,7 @@ real, e registrar o resultado.
    - `PostTaskExec`: marcar uma task `[x]` via "Start task" numa spec de teste.
 4. Conferir quais `.kiro/hooks/.fired-<trigger>` foram gravados (com timestamp UTC).
 5. Preencher a tabela abaixo com o resultado real — **isto é registro empírico, não previsão**.
-6. Trigger que NÃO disparou: remover o hook correspondente do central (`hooks/*.json`) ou rebaixar a doc que promete "mecaniza X" pra "tentativa best-effort" em `OPERACAO.md` §1.2/§2 e no `CHANGELOG.md`.
+6. Trigger que NÃO disparou: remover o hook correspondente do central (`hooks/*.json`) ou rebaixar a doc que promete "mecaniza X" pra "tentativa best-effort" em `OPERACAO.md` §1/§2 e no `CHANGELOG.md`.
 7. Apagar `_canary.json` e os `.fired-*` do projeto de teste ao final — não é pra ficar instalado em lugar nenhum.
 
 ## Resultado (preencher após rodar o passo 1–5 num Kiro real)

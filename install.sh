@@ -181,6 +181,7 @@ install_engine() {  # $1 = raiz .kiro de destino
   if [ -d "$SRC/hooks/scripts" ]; then
     _x mkdir -p "$K/hooks/scripts"
     _x cp -f "$SRC"/hooks/scripts/*.sh "$K/hooks/scripts/"
+    _x chmod +x "$K"/hooks/scripts/*.sh
     for f in "$SRC"/hooks/scripts/*.sh; do NEW_HOOK_SCRIPTS+=("$(basename "$f")"); done
   fi
 
@@ -192,6 +193,10 @@ install_engine() {  # $1 = raiz .kiro de destino
   _x mkdir -p "$K/scripts"
   _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
   _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
+  # bit de execução explícito: tudo é invocado como 'bash <script>', mas a forma
+  # citada em prompts/docs ('.kiro/scripts/worktree.sh start X') depende do bit
+  # ter sobrevivido ao cp — não confiar nisso.
+  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh"
   local NEW_SCRIPTS=(worktree.sh kiro-paths.sh)
   # auto-referência: se alguém rodar os scripts direto daqui (ex.: escopo global
   # puro, sem camada de projeto por perto), kiro-paths.sh já resolve pra si mesmo
@@ -257,12 +262,22 @@ install_engine() {  # $1 = raiz .kiro de destino
 install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default: $1/.kiro, escopo project)
   local P="$1" K="$1/.kiro" ENGINE="${2:-$1/.kiro}"
   _x mkdir -p "$K/steering/guidelines" "$K/hooks" "$K/settings" "$P"/docs/issues "$P"/docs/reviews "$P"/docs/context "$P"/docs/tests-spec
-  # steering do time (sobrescreve na atualização)
-  _x cp -f "$SRC"/steering-base/escalation-rules.md "$K/steering/"
-  _x cp -f "$SRC"/steering-base/quality-gates.md    "$K/steering/"
-  _x cp -f "$SRC"/steering-base/workflow.md         "$K/steering/"
+  # steering do time (sobrescreve na atualização) — mas se o arquivo local foi
+  # customizado (difere do central), preserva .bak antes: sobrescrita silenciosa
+  # perdia a customização sem aviso nem backup.
+  cp_team_file() {
+    local s="$1" dstdir="$2" dst; dst="$dstdir/$(basename "$1")"
+    if [ -f "$dst" ] && ! cmp -s "$s" "$dst"; then
+      _x cp -f "$dst" "$dst.bak"
+      echo "  ⚠ $(basename "$dst") local diferia do central — versão anterior preservada em $dst.bak"
+    fi
+    _x cp -f "$s" "$dstdir/"
+  }
+  cp_team_file "$SRC"/steering-base/escalation-rules.md "$K/steering"
+  cp_team_file "$SRC"/steering-base/quality-gates.md    "$K/steering"
+  cp_team_file "$SRC"/steering-base/workflow.md         "$K/steering"
   for g in $(stack_guidelines); do
-    _x cp -f "$SRC/steering-base/guidelines/$g" "$K/steering/guidelines/"
+    cp_team_file "$SRC/steering-base/guidelines/$g" "$K/steering/guidelines"
   done
   # steering do projeto (só se ausente — pertence ao projeto)
   for t in product tech structure retro-learnings; do
@@ -278,6 +293,7 @@ install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default:
   _x mkdir -p "$K/scripts"
   _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
   _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
+  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh"
   if [ "$DRYRUN" != "1" ]; then
     printf 'KIRO_ENGINE=%q\n' "$ENGINE" > "$K/.kiro-ai-team-paths"
   else
