@@ -82,7 +82,7 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 ```
 
 - No worktree: agente `dev-dotnet` | `dev-webforms` | `dev-flutter` → "prepare o worktree do PBI PROJ-1234" (`task-preflight`: confirma branch + build verde). O hook `preflight-branch` já avisa sozinho no início da sessão se a branch atual não bater com uma spec ativa.
-- No painel da spec (`.kiro/specs/<slug>/tasks.md`): clique **"Start task"** nativo do Kiro em cada item, na ordem — é o Kiro quem implementa. Após cada `[x]`: o hook `task-checkpoint` roda build/teste sozinho e só reporta se algo falhar (sem o hook instalado, peça "checkpoint" manualmente ao mesmo agente).
+- No painel da spec (`.kiro/specs/<slug>/tasks.md`): clique **"Start task"** nativo do Kiro em cada item, na ordem — é o Kiro quem implementa. Após cada `[x]`: peça "checkpoint" ao mesmo agente (build/teste do módulo tocado). O hook `task-checkpoint` mecaniza isso quando instalado, mas é **experimental** até `hooks/VERIFY.md` confirmar o trigger `PostTaskExec` — não conte com ele sozinho.
 - "**Outra sessão**" pro `qa-blackbox` (e pros reviewers no Passo 4) significa **aba de chat nova** (ícone "+" no painel, ou `/chat new` na CLI) **com o agente selecionado nessa aba nova** — nunca só trocar o agente na mesma aba onde o dev trabalhou. Ele lê só a spec, nunca `src/` (reforçado por um hook próprio, `qa-blackbox-guard` — defesa em profundidade, não confie só nele) — não interfira nisso, é o mecanismo central.
 - Dev terminou → `verify-change` com evidência real (não aceite "pronto").
 
@@ -113,6 +113,7 @@ Resultado: `.kiro/specs/<slug>/tasks.md` com os gates G1–G5 já embutidos no f
 | Mesma falha pela 2ª vez                                                         | `retrospective` na hora — vira regra em `retro-learnings.md`                              |
 | Repo desconhecido / onboarding                                                  | `reverse-engineer-project` antes de qualquer PBI                                          |
 | Quer ensaiar o ciclo sem risco                                                  | `examples/PBI-EXEMPLO/` — brief + spec + evidência dos 5 gates prontos pra estudo         |
+| Quer um modelo de requirements EARS + design com contratos (trilho feature)     | `examples/PBI-FEATURE/` — brief, requirements, design e tests-spec encadeados por R#.#    |
 
 **Regra de bolso:** vai para produção → passa pelos gates. É descartável → não passe.
 
@@ -144,6 +145,8 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 ---
 
 ## 7. Referência — agentes
+
+> **Modelo por agente** (`"model"` nos `agents/*.json`): nenhum agente declara — todos rodam no default da sessão. O campo é a maior alavanca de custo/qualidade disponível e vale preencher **no seu ambiente**: rode `/model` numa sessão do Kiro pra listar os IDs válidos (mudam por conta/região; ID inválido cai no default com warning, não quebra) e aplique o tiering: `reviewer-code`/`reviewer-spec`/`auditor` no tier mais forte (raciocínio adversarial), `dev-*`/`qa-blackbox`/`spec-analyst`/`orchestrator` no default. Não versionamos IDs no central porque variam por instalação — decisão é por projeto.
 
 ### `orchestrator`
 

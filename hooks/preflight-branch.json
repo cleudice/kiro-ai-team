@@ -7,7 +7,7 @@
       "trigger": "SessionStart",
       "action": {
         "type": "command",
-        "command": "b=$(git branch --show-current 2>/dev/null); if [ -n \"$b\" ] && [ \"$b\" != \"${b#pbi/}\" ]; then echo \"worktree do PBI confirmado: branch $b\"; elif grep -l '^- \\[ \\]' .kiro/specs/*/tasks.md >/dev/null 2>&1; then echo \"⚠ há specs com task PENDENTE ('[ ]') em .kiro/specs/ mas a branch atual ('${b:-desconhecida}') não é pbi/<ID> — confirme se é o worktree certo antes de rodar 'Start task' (.kiro/scripts/worktree.sh start <PBI>).\"; fi"
+        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/preflight-branch.sh\""
       },
       "timeout": 15,
       "enabled": true

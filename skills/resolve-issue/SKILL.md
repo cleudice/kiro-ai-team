@@ -10,7 +10,7 @@ description: Fecha o ciclo no tracker de ORIGEM (Jira, Azure Boards ou GitHub) �
 1. Ler `origem`/`id` do brief; montar a resolução: causa raiz e solução (2–5 linhas), passos de reprodução p/ QA, notas de config/migração (scripts Oracle + rollback!), links de PR/commit.
 2. Postar via MCP correspondente (atlassian | azure-devops | github) e transicionar o status conforme o workflow do projeto — confirmar com o humano antes de status incomum.
 3. Sem MCP disponível: imprimir a resolução formatada para colagem manual.
-4. Registrar cópia local em `docs/issues/<ID>.md` (seção `## Resolução`).
+4. Registrar cópia local em `docs/issues/<ID>.md` (seção `## Resolução`) e atualizar a linha `status:` do brief para `done`.
 
 ## Saída — seção `## Resolução` anexada em docs/issues/<ID>.md (e no tracker, mesmo conteúdo)
 

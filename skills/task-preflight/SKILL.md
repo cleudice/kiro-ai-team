@@ -14,12 +14,12 @@ O Kiro já executa `tasks.md` nativamente (botão "Start task" no painel da spec
 1. Confirmar que está no worktree/branch corretos: `git branch --show-current` deve ser `pbi/<ID>` (criado por `.kiro/scripts/worktree.sh start <ID>`). Branch errada → parar e corrigir antes de tocar em código. O hook `preflight-branch` (`SessionStart`) já avisa isso sozinho no início da sessão se houver spec ativa numa branch que não é `pbi/*` — trate o aviso como o gatilho pra rodar este passo, não como substituto dele.
 2. Rodar o comando de build/teste do `tech.md` do projeto. Não está verde? Não é o PBI atual que deve resolver — escalar.
 3. Carregar guidelines do stack + `docs/context/` (eixos conventions/gotchas) se existirem.
-4. Confirmar que `.kiro/specs/<slug>/tasks.md` existe e está com os gates G1–G5 no final.
+4. Confirmar que `.kiro/specs/<slug>/tasks.md` existe e está com os gates G1–G5 no final; atualizar `status: em-dev` no brief `docs/issues/<ID>.md`.
 5. A partir daqui: use o painel do Kiro para "Start task" em cada item, na ordem do `tasks.md`.
 
 ## Checkpoint (depois de cada task marcada [x] no painel)
 
-O hook `task-checkpoint` (`PostTaskExec`) roda build+testes automaticamente após cada task marcada `[x]` e só reporta se algo falhar — é o caminho padrão agora; os passos abaixo são o que fazer manualmente se o hook não estiver instalado (`.kiro/hooks/task-checkpoint.json` ausente) ou como conferência extra:
+O hook `task-checkpoint` (`PostTaskExec`) roda build+testes automaticamente após cada task marcada `[x]` e só reporta se algo falhar — **experimental**: o trigger `PostTaskExec` ainda não foi confirmado contra um Kiro real (`hooks/VERIFY.md`); até lá, trate os passos abaixo como o caminho padrão, e o hook como reforço quando instalado (`.kiro/hooks/task-checkpoint.json`):
 
 1. Build + testes do módulo tocado → verdes antes de seguir para a próxima task.
 2. Revisar o diff da task: ficou dentro do escopo dela? Nada fora da task atual — melhoria oportunista vira nota em `docs/reviews/<PBI>-notes.md`, não commit.

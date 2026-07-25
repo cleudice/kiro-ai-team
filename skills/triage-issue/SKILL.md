@@ -25,6 +25,7 @@ Bug/manutenção:
 ```
 # <título>
 origem: jira|azdo|github|crashlytics  id: <externo>  tipo: manutencao
+status: aberto
 repo(s): <lista>  vinculado a: <briefs irmãos, se multi-repo>
 ## Contexto
 ## Reprodução (passos + o que anexos de imagem mostram)
@@ -38,6 +39,7 @@ Feature/tarefa:
 ```
 # <título>
 origem: jira|azdo|github|crashlytics  id: <externo>  tipo: feature|tarefa
+status: aberto
 repo(s): <lista>  vinculado a: <briefs irmãos, se multi-repo>
 ## Objetivo (o quê e por quê, do PRD/descrição do card)
 ## Escopo esperado (o que o PRD já define como incluído)
@@ -48,5 +50,6 @@ repo(s): <lista>  vinculado a: <briefs irmãos, se multi-repo>
 
 ## Regras
 
+- A linha `status:` é o estado do PBI em disco — única fonte pro orchestrator retomar numa sessão nova sem reconstruir por inspeção. Valores: `aberto` (triage feito) → `em-spec` (write-requirements iniciado) → `em-dev` (worktree criado) → `em-review` (verify entregue) → `merged` (merge-gate verde) → `done` (resolve-issue fechou no tracker). Quem executa cada etapa atualiza a linha; nunca pular direto pra `done`.
 - Não planeja solução — entrega o problema enquadrado para o spec-analyst/write-tasks.
 - Informação faltante na issue (inclusive o que um anexo de imagem não deixa claro): perguntar no próprio tracker (comentário) ou ao humano; não inventar contexto.

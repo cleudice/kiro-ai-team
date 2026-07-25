@@ -4,7 +4,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
-Sem mudanças pendentes desde o `[1.7.0]` abaixo.
+Sem mudanças pendentes desde o `[1.8.0]` abaixo.
+
+## [1.8.0] — 2026-07-25
+
+Fecha o backlog estrutural da quarta auditoria (itens que não dependiam de um Kiro real).
+
+### Adicionado
+
+- **Estado do PBI em disco** — linha `status:` no brief `docs/issues/<ID>.md` (`aberto → em-spec → em-dev → em-review → merged → done`), com a transição atualizada pela skill dona de cada etapa (`triage-issue`, `write-requirements`, `task-preflight`, `verify-change`, `merge-gate`, `resolve-issue`). Antes o orchestrator tinha que reconstruir o estado por inspeção de arquivos a cada sessão nova.
+- **`examples/PBI-FEATURE/`** — exemplar do trilho feature (o que faltava): brief, `requirements.md` EARS completo (erro, borda, não-funcionais), `design.md` com contrato público completo (`Cobre: R#.#`) e `tests-spec` — rastreabilidade tripla R#.# demonstrada de ponta a ponta.
+- **Esqueletos de saída em `write-requirements` e `write-design`** — eram as skills mais rasas do repo sendo a frente da pipeline; agora especificam o formato no nível das skills de gate, incluindo a definição operacional de "contrato completo" (assinatura + entrada + toda saída de sucesso e de erro + `Cobre:`).
+- **Orientação de `model` por agente** (OPERACAO.md §7) — tiering recomendado (reviewers/auditor no tier forte) e como descobrir os IDs válidos (`/model`); IDs não são versionados no central porque variam por instalação.
+
+### Alterado
+
+- **`task-checkpoint`: `agent` → `command`** (`hooks/scripts/task-checkpoint.sh`) — checkpoint é determinístico (build+testes do `tech.md`); não precisa de um turno de modelo inteiro por task marcada `[x]` (mesma racional do I5 nos `format-*`). Detecta placeholder não preenchido e reporta só em falha.
+- **`preflight-branch`: shell inline no JSON → `hooks/scripts/preflight-branch.sh`** — lintável (`bash -n`/shellcheck via glob do selftest) e testável; JSON resolve via `kiro-paths.sh` como os demais.
+- **Linguagem dos hooks rebaixada para "experimental"** em `task-preflight/SKILL.md` e OPERACAO.md §2 — `PostTaskExec` segue não confirmado contra um Kiro real (`hooks/VERIFY.md`); chamar de "caminho padrão" contradizia a própria tese do repo (autorrelato não conta). O caminho padrão volta a ser o checkpoint manual até o VERIFY confirmar.
 
 ## [1.7.0] — 2026-07-25
 

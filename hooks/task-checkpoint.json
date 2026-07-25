@@ -3,11 +3,11 @@
   "hooks": [
     {
       "name": "task-checkpoint",
-      "description": "Build+testes automáticos após cada task de tasks.md marcada [x] — mecaniza o checkpoint que task-preflight hoje pede por texto (A6)",
+      "description": "Build+testes determinísticos após cada task de tasks.md marcada [x] — mecaniza o checkpoint que task-preflight pede por texto (A6). Convertido de agent pra command (mesma racional do I5): checkpoint é determinístico, não precisa de um turno de modelo por task.",
       "trigger": "PostTaskExec",
       "action": {
-        "type": "agent",
-        "prompt": "Uma task de .kiro/specs/<slug>/tasks.md acabou de ser marcada [x] pelo 'Start task' nativo. Rode o comando de build e o comando de testes declarados em steering/tech.md do projeto (módulo tocado pela task, ou a suíte completa se não for possível isolar). Reporte SÓ se algo falhar — build quebrado, teste vermelho, ou tech.md sem comando preenchido (template não editado). Se tudo estiver verde, não produza nenhum arquivo nem mensagem além de uma confirmação de uma linha. Nunca corrija código aqui — isso é checkpoint, não implementação; falha vira escalação (escalation-rules.md) pro dev-* dono da task."
+        "type": "command",
+        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/task-checkpoint.sh\""
       },
       "timeout": 300,
       "enabled": true
