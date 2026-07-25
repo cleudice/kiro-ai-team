@@ -4,7 +4,39 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
-Sem mudanças pendentes desde o `[1.6.1]` abaixo.
+Sem mudanças pendentes desde o `[1.7.0]` abaixo.
+
+## [1.7.0] — 2026-07-25
+
+Quarta auditoria de ecossistema (três varreduras paralelas: agents/hooks/mcp, skills/steering/docs, scripts/install/tests/CI), com verificação manual dos achados críticos antes de corrigir.
+
+### Corrigido (bloqueantes)
+
+- **Frontmatter YAML inválido em 4 agentes `.md`** — `gen-agent-md.sh` emitia `description:` sem aspas; `orchestrator`, `auditor`, `reviewer-code` e `reviewer-spec` têm `: ` na description, o que quebra o parse YAML (o IDE do Kiro podia falhar ao carregar os 4). Agora `description`/`matcher`/`command` saem via `json.dumps`; `selftest.sh` ganhou parse YAML real dos frontmatters (o check de sincronia comparava texto e nunca teria pego).
+- **`.gate-ledger` era gravado no worktree do PBI** — que `worktree.sh finish` apaga; o dado de auto-avaliação do processo nunca sobrevivia. Agora vai pro repo principal, mesma resolução do `bump-counter` (I4).
+- **G1b reprovava falso em worktree recém-criado** — o log era redirecionado pra `docs/reviews/` antes de qualquer `mkdir -p` (git não versiona diretório vazio): suíte verde aparecia como "G1b suíte FALHOU".
+- **Hooks `format-*` quebravam em `hybrid`/`global`** — path relativo `.kiro/hooks/scripts/` hardcoded nos 3 JSONs; agora resolvem via `kiro-paths.sh`, mesmo padrão do guard do `qa-blackbox` (B3 completo).
+- **Resolução de worktree truncava paths com espaço** — `awk '{p=$2}'` sobre `git worktree list --porcelain` pegava só o primeiro token (norma no Windows, ambiente declarado como suportado); trocado por `sub()`.
+- **Fluxo literal do merge abortava no `finish`** — `worktree.sh finish` exige o merge presente em `origin/<main>` (`merge-base --is-ancestor`), mas nenhum documento mandava dar `git push`. `merge-gate/SKILL.md` e `OPERACAO.md` agora explicitam o push antes do `finish`.
+- **Doc do B2 contradizia o código** — `quality-gates.md` (injetado em toda sessão) dizia "HEAD atual"; `check-gates.sh` compara com o último commit de **código** (exclui `docs/reviews/**`/`docs/tests-spec/**`). A versão errada induzia refazer gate sem necessidade. Corrigido também em `OPERACAO.md` §7.
+
+### Corrigido (robustez)
+
+- `install.sh`: `warn_version_mismatch` rodava depois dos installs gravarem a mesma versão nos dois manifestos (nunca disparava — código morto); movido pra antes. Flag desconhecida (ex.: `--updte`) e diretório inexistente viravam DEST e ganhavam uma instalação — agora reprovam cedo. Array vazio sob `set -u` abortava `--update` no bash < 4.4 (macOS 3.2, RHEL 7) — guard `${ARR[@]+...}`. `--uninstall` hybrid deixava o manifesto do projeto órfão apontando scripts removidos. `--help` despejava os comentários internos inteiros; agora só o bloco de uso.
+- `format-{dotnet,flutter}.sh`: o fallback git pegava o último arquivo em ordem **alfabética** (`sort | tail -1`), não o salvo por último — agora por mtime (`newest_of`); logs em `mktemp` em vez de `/tmp/*.log` fixo (colisão entre worktrees concorrentes).
+- Fixture `examples/PBI-EXEMPLO`: a evidência não tinha a linha-âncora `Commit:` que as skills exigem — o modelo que se copia ensinava o formato errado. Referências mortas a `MANUAL.md`/`QUICKSTART` (deletados na v1.6.0) removidas.
+
+### Alterado
+
+- Cláusulas comuns dos 3 `dev-*` (escopo travado, uma task por vez, verde por task, escalar ambiguidade, não aprova o próprio trabalho) estavam triplicadas literalmente nos prompts — drift esperando acontecer. Fonte única agora é `steering-base/workflow.md` (`inclusion: always`); cada prompt de dev só carrega o específico do stack.
+- `OPERACAO.md` §9 declara `quality-gates.md` como fonte canônica da tabela de gates (a tabela ali é resumo derivado).
+- `mcp/README.md`: critério explícito de `autoApprove` (só leituras de tracker; nunca escrita; nunca banco/experimental) e nota sobre `${AZDO_ORG}` em `args` (posicional, não-segredo, e o modo de falha quando ausente).
+
+### Adicionado (testes e CI)
+
+- `tests/test-check-gates.sh` (+3): ledger sobrevive ao worktree; G1b verde em worktree sem `docs/reviews/`; path com espaço resolve.
+- `tests/test-install.sh`: `hooks/scripts/` instalados por escopo (regressão B3), manifesto removido no uninstall hybrid, logs em `$TMP` e impressos em falha (antes um assert vermelho no CI não dava diagnóstico nenhum).
+- CI: shellcheck `-S error` em todo o shell; matriz `ubuntu`+`macos` (onde bash 3.2 pegaria o bug de array); `permissions: contents: read`; `timeout-minutes`; `concurrency`; gate de bump VERSION/CHANGELOG em PR que muda comportamento.
 
 ## [1.6.1] — 2026-07-24
 

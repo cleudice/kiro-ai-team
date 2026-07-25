@@ -5,9 +5,20 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   selftest:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: git identity (necessária pros fixtures de teste)
@@ -16,3 +27,35 @@ jobs:
           git config --global user.name "kiro-ai-team CI"
       - name: selftest.sh (sintaxe, JSON, frontmatter, links, gates, install, worktree)
         run: bash selftest.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck (bash -n só pega sintaxe; isto pega array vazio sob set -u, quoting, etc.)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S error install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh hooks/scripts/*.sh tests/*.sh
+
+  version-bump:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: PR que muda comportamento precisa bumpar VERSION + CHANGELOG
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch -q origin "${{ github.base_ref }}"
+          # só docs/exemplos/CI mudaram? bump dispensado
+          if git diff --name-only "$BASE"...HEAD | grep -qvE '^(docs/|examples/|\.github/|README\.md|OPERACAO\.md|CHANGELOG\.md|VERSION)'; then
+            if git diff --quiet "$BASE"...HEAD -- VERSION; then
+              echo "::error::mudança de comportamento sem bump de VERSION (e entrada no CHANGELOG)"; exit 1
+            fi
+            git diff --quiet "$BASE"...HEAD -- CHANGELOG.md && { echo "::error::VERSION bumpada sem entrada no CHANGELOG.md"; exit 1; } || true
+          else
+            echo "só docs/CI — bump dispensado"
+          fi

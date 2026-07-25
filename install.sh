@@ -161,7 +161,7 @@ install_engine() {  # $1 = raiz .kiro de destino
 
   # scripts referenciados por hooks EMBUTIDOS em agente (ex.: qa-blackbox-guard.sh em
   # agents/qa-blackbox.json) são dependência de carga, não opcionais como os
-  # hooks/*.json de conveniência (esses continuam cópia manual, ver QUICKSTART) —
+  # hooks/*.json de conveniência (esses continuam cópia manual, ver OPERACAO.md) —
   # sempre vão junto da engine.
   if [ -d "$SRC/hooks/scripts" ]; then
     _x mkdir -p "$K/hooks/scripts"

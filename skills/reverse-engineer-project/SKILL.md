@@ -20,7 +20,7 @@ description: Mapeia um repo desconhecido e escreve docs/context/ por eixos (over
 <corpo: fatos concretos, caminho real do repo (arquivo:linha quando ajudar), não prosa de manual>
 ```
 
-Conteúdo esperado por eixo (referência rápida — detalhe completo em MANUAL.md §3): overview = o que o sistema faz; architecture = camadas/componentes/dependências; integrations = APIs externas/MCPs/filas; data-flow = modelos/persistência/transações; security = authn/z/segredos/superfícies; conventions = idioma do repo/nomes/padrões; gotchas = armadilhas/débito/"não mexa sem…"; feature-guide = onde nasce código novo, passo a passo.
+Conteúdo esperado por eixo (referência rápida): overview = o que o sistema faz; architecture = camadas/componentes/dependências; integrations = APIs externas/MCPs/filas; data-flow = modelos/persistência/transações; security = authn/z/segredos/superfícies; conventions = idioma do repo/nomes/padrões; gotchas = armadilhas/débito/"não mexa sem…"; feature-guide = onde nasce código novo, passo a passo.
 Regra de formato: cada arquivo é standalone — um agente pode carregar só ESSE eixo (é o ponto da carga seletiva). Referência a outro eixo sempre com o caminho completo (`docs/context/security.md`), nunca "ver acima".
 
 ## Regras

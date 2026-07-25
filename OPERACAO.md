@@ -223,7 +223,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
   ENGINE="$(bash .kiro/scripts/kiro-paths.sh)"   # resolve a raiz da engine — mesmo caminho no escopo project; aponta pra $KIRO_HOME em hybrid/global
   bash "$ENGINE/skills/merge-gate/scripts/check-gates.sh" <PBI> <slug> --test-cmd "<cmd do tech.md>" [--track manutencao]
   ```
-  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o HEAD atual de `pbi/<PBI>` — evidência aprovada num commit anterior não sobrevive a um commit novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
+  Sem `--repo`, resolve sozinho o worktree do PBI a partir da branch `pbi/<ID>`. G5 é bloqueante por padrão — precisa de `--g5-log <arquivo>` (com as linhas `G5: PASS` + `Commit: <sha>`) ou de `--skip-g5 "<motivo>"` como escape explícito. G2/G3/G4/G5 exigem a linha `Commit: <sha>` batendo com o último commit de **código** de `pbi/<PBI>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam) — evidência aprovada num commit anterior não sobrevive a código novo no mesmo PBI (evita gate "atemporal"). Saída: exit 0/1 + `docs/reviews/<PBI>-gate.md` se recusado. Cada execução grava 1 linha em `docs/reviews/.gate-ledger` (dado bruto pra decidir com números, não opinião, se algum gate custa mais do que pega).
 - **`resolve-issue`** — fecha o ciclo no tracker de origem. Dono: `orchestrator`, automático ao fim do `merge-gate`.
 
 ### Loops
@@ -234,6 +234,8 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 ---
 
 ## 9. Gates — o que cada um checa, mecanicamente
+
+> Fonte canônica: `steering-base/quality-gates.md` (injetado em toda sessão). A tabela abaixo é um resumo derivado — em divergência, vale o quality-gates.md + o comportamento de `check-gates.sh`.
 
 | Gate | Confere                                                   | Arquivo-evidência                                                                 | Quem produz a evidência | Bloqueante?                                                           |
 | ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
