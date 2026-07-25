@@ -26,7 +26,8 @@ ou
 Veredicto: REPROVADO
 ```
 
-Segunda linha, sempre: `Commit: <sha do HEAD do diff revisado>` — é a âncora que `check-gates.sh` usa (B2) pra confirmar que este veredicto vale para o commit que vai ser mesclado. Código novo commitado depois invalida a aprovação; revise de novo.
+<!-- sync: veredicto-commit (idêntico em review-spec e review-code; selftest confere) -->
+Segunda linha, sempre: `Commit: <sha do último commit de CÓDIGO de pbi/<ID>>` (commits que só tocam `docs/reviews/**`/`docs/tests-spec/**` não contam — é contra esse sha que `check-gates.sh` valida). Código novo commitado depois invalida a aprovação; revise de novo.
 Depois: achados: `[SEV] arquivo:linha — cenário de falha — sugestão`. Nunca escrever a palavra do veredicto oposto solta no corpo do texto — isso quebraria a leitura mecânica do gate.
 
 ## Regras

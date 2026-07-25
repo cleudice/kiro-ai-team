@@ -7,14 +7,17 @@
 # Só reporta em falha; verde = uma linha de confirmação. Nunca corrige código —
 # checkpoint, não implementação; falha é escalação pro dev-* dono da task.
 set -uo pipefail
+. "$(dirname "$0")/lib.sh"
+cd_repo_root
 TECH=".kiro/steering/tech.md"
 [ -f "$TECH" ] || { echo "  ℹ task-checkpoint: $TECH não encontrado (cwd não é a raiz do projeto?) — checkpoint pulado"; exit 0; }
 
-# extrai o comando entre crases de uma linha "- Build: `cmd`" / "- Testes: `cmd`"
+# extrai o comando entre crases de uma linha "Build: `cmd`" / "Testes: `cmd`" —
+# tolerante ao marcador de lista (-, *, +, ou nenhum): acoplar ao literal '^- '
+# quebrava silencioso se o template fosse reformatado.
 extract_cmd() {
-  grep -m1 -E "^- $1:" "$TECH" 2>/dev/null | sed -n 's/.*`\([^`]*\)`.*/\1/p'
+  grep -m1 -E "^[-*+]?[[:space:]]*$1:" "$TECH" 2>/dev/null | sed -n 's/.*`\([^`]*\)`.*/\1/p'
 }
-unfilled() { local c="$1"; [ -z "$(printf '%s' "$c" | tr -d '[:space:]')" ] && return 0; case "$c" in *'...'*) return 0;; esac; return 1; }
 
 BUILD="$(extract_cmd Build)"
 TEST="$(extract_cmd Testes)"

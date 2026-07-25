@@ -38,7 +38,10 @@ if r:
 " 2>/dev/null)"
 
 if [ -z "$PATH_FOUND" ]; then
-  PATH_FOUND="$(printf '%s' "$PAYLOAD" | grep -ozE '[^"'"'"' ]*(^|/)src/[^"'"'"' ]*' 2>/dev/null | tr -d '\0' | head -c 500)"
+  # sem -z: 'grep -ozE' é GNU-only — no BSD/macOS falhava engolido pelo 2>/dev/null
+  # e o guard virava inerte. Payload JSON de uma linha só funciona igual sem -z.
+  PATH_FOUND="$(printf '%s' "$PAYLOAD" | grep -oE '[^"'"'"' ]*/src/[^"'"'"' ]*' 2>/dev/null | head -1 | head -c 500)"
+  [ -z "$PATH_FOUND" ] && PATH_FOUND="$(printf '%s' "$PAYLOAD" | grep -oE '(^|[^"'"'"' ]*)src/[^"'"'"' ]*' 2>/dev/null | head -1 | head -c 500)"
 fi
 
 if [ -n "$PATH_FOUND" ] && printf '%s' "$PATH_FOUND" | grep -qiE '(^|/)src/'; then

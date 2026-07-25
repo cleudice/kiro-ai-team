@@ -4,13 +4,9 @@
 # que disparava um agente inteiro pra reler a guideline a cada save (M3) — isto é
 # um mini-review, não o G4; grep não substitui julgamento, só pega os padrões óbvios
 # e baratos de detectar.
-#
-# O contrato exato de como o Kiro repassa o arquivo salvo pra um action.type=command
-# não é documentado publicamente no momento em que este script foi escrito. Por isso
-# ele NÃO depende de um único mecanismo: tenta, nesta ordem, $1, $KIRO_FILE_PATH e,
-# na ausência dos dois, cai para os .sql com mudança não commitada no git (staged +
-# working tree) — o que funciona independente de qual for o contrato real do hook.
 set -uo pipefail
+. "$(dirname "$0")/lib.sh"
+cd_repo_root
 FAIL=0
 warn(){ printf '  ⚠ %s\n' "$1"; FAIL=1; }
 
@@ -19,7 +15,13 @@ check_one() {
   [ -f "$f" ] || return 0
   grep -qiE 'WHEN[[:space:]]+OTHERS[[:space:]]+THEN[[:space:]]+NULL' "$f" && \
     warn "$f: 'WHEN OTHERS THEN NULL' — tratamento de exceção explícito é obrigatório (guidelines/oracle.md)"
-  if grep -qiE '\b(DDL|DROP|ALTER|CREATE)\b' "$f" 2>/dev/null; then
+  # DDL ESTRUTURAL, não qualquer CREATE: a versão anterior casava \b(CREATE)\b —
+  # ou seja, TODO 'CREATE OR REPLACE PACKAGE/PROCEDURE' (rotina em PL/SQL) exigia
+  # rollback ao lado, hook vermelho em todo save de package. Falso positivo
+  # garantido é aviso ignorado (mesma lição do I7 logo abaixo). CREATE OR REPLACE
+  # é idempotente por natureza e fica de fora; o que pede rollback é mudança de
+  # schema: DROP/TRUNCATE/ALTER TABLE/CREATE TABLE|INDEX|SEQUENCE.
+  if grep -qiE '\b(DROP[[:space:]]+(TABLE|INDEX|SEQUENCE|COLUMN)|TRUNCATE[[:space:]]+TABLE|ALTER[[:space:]]+TABLE|CREATE[[:space:]]+(TABLE|INDEX|SEQUENCE))\b' "$f" 2>/dev/null; then
     local dir base; dir="$(dirname "$f")"; base="$(basename "$f" .sql)"
     ls "$dir/${base}"*rollback* >/dev/null 2>&1 || ls "$dir"/rollback*"${base}"* >/dev/null 2>&1 || \
       warn "$f: parece DDL/alteração de schema sem script de rollback ao lado (convenção: <nome>.rollback.sql) — confirme se existe em outro caminho"
@@ -35,6 +37,8 @@ check_one() {
   fi
 }
 
+# resolução: $1/KIRO_FILE_PATH quando o hook informa o arquivo; sem eles, TODOS
+# os .sql com mudança não commitada (lint é barato — aqui não vale só o mais recente)
 if [ -n "${1:-}" ] && [ -f "${1:-}" ]; then
   check_one "$1"
 elif [ -n "${KIRO_FILE_PATH:-}" ] && [ -f "$KIRO_FILE_PATH" ]; then

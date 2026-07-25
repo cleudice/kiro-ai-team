@@ -5,6 +5,8 @@
 # extraído pra cá. I8: só specs com '[ ]' pendente disparam o aviso — senão ele
 # apareceria toda sessão até em PBI já fechado, e aviso constante é aviso ignorado.
 set -uo pipefail
+. "$(dirname "$0")/lib.sh"
+cd_repo_root
 b="$(git branch --show-current 2>/dev/null || true)"
 if [ -n "$b" ] && [ "$b" != "${b#pbi/}" ]; then
   echo "worktree do PBI confirmado: branch $b"

@@ -7,7 +7,7 @@ description: Gera .kiro/specs/<slug>/tasks.md — checklist executável com os g
 
 ## Passos
 
-1. Feature: derivar tasks do design.md, ordenadas por dependência. Manutenção: derivar direto do brief (3–8 tasks).
+1. Feature: derivar tasks do design.md, ordenadas por dependência — e só congelar com o G0 verde (`docs/reviews/<PBI>-spec-draft.md` com `Veredicto: APROVADO`, revisão adversarial da spec pelo reviewer-spec em modo draft; sem ele, a spec seria a única etapa do ciclo aprovada por quem a escreveu). Manutenção: derivar direto do brief (3–8 tasks) — dono desta variante é o orchestrator (o spec-analyst só atua no trilho feature).
 2. Cada task: verbo + resultado verificável + referência aos requisitos (R1.2…) + **agente dono entre parênteses** — o agente que vai executar aquela task (`dev-dotnet`, `dev-webforms`, `dev-flutter`, `qa-blackbox`). Sem dono = task não pode ser roteada; nunca deixar implícito. Independentemente verificável; sem task "misc".
 3. Design decidiu zero mudança de produção (bugfix só de teste, por ex.)? Todas as tasks de código são do `qa-blackbox`; não inventar task de `dev-*` que não existe no design.
 4. Anexar SEMPRE o bloco final de gates, cada gate já com o agente dono.

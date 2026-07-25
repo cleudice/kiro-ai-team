@@ -16,7 +16,7 @@ Normalizar qualquer origem de trabalho no brief padrão que o resto do time cons
    - Bug: tentar reproduzir e localizar o código suspeito (grep dirigido, docs/context/ se existir).
    - Feature/tarefa com PRD (ou spec simples) na própria descrição do card: extrair Objetivo (o quê e por quê), Escopo esperado (o que o PRD já define como incluído) e Fora de escopo (se o PRD já declarar) — não inventar o que o PRD não disser; lacuna vira pergunta, não suposição.
 3. Buscar duplicatas/similares no tracker; anexar links e a solução anterior se houver.
-4. Avaliar: precisa de spike? bloqueadores? repositórios afetados (pode ser >1 — gerar um brief por repo, vinculados).
+4. Avaliar: precisa de spike? (spike = investigação descartável, roda em "Kiro puro, sem o time" — ver OPERACAO §3; o resultado volta como contexto do brief, nunca vira PBI próprio) bloqueadores? repositórios afetados (pode ser >1 — gerar um brief por repo, vinculados).
 
 ## Saída — docs/issues/<TRACKER>-<ID>.md
 
@@ -31,7 +31,7 @@ repo(s): <lista>  vinculado a: <briefs irmãos, se multi-repo>
 ## Reprodução (passos + o que anexos de imagem mostram)
 ## Código suspeito / área afetada
 ## Duplicatas & histórico
-## Trilho recomendado: tasks-minimas
+## Trilho recomendado: manutencao
 ```
 
 Feature/tarefa:

@@ -10,5 +10,13 @@
   "resources": [
     "skill://audit-integration",
     "skill://retrospective"
-  ]
+  ],
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "fs_write",
+        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/readonly-guard.sh\""
+      }
+    ]
+  }
 }
