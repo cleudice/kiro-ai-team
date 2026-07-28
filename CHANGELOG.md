@@ -6,6 +6,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+### Adicionado
+
+- **`steering-base/guidelines/typescript.md`** — projetos TS/Node (ex.: Firebase Functions) não tinham NENHUM guideline disparando (`dotnet.md`/`webforms.md`/`oracle.md`/`flutter.md` casam só com `.cs`/`.aspx*`/`.sql`/`.dart`; nenhum casa com `.ts`/`.tsx`). Sem `dev-*`/`--stack` dedicado (sem `dev-node` no elenco) — vai sempre junto dos outros 4, mesmo esquema (`fileMatch: **/*.ts*`), independente do `--stack`.
+
 ### Corrigido
 
 - **As 3 causas Windows-only do `continue-on-error` — confirmadas e corrigidas numa máquina Windows real** (Git Bash/MSYS):

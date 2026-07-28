@@ -20,7 +20,7 @@ git clone <org>/kiro-ai-team
 ./kiro-ai-team/install.sh /caminho/do/projeto --uninstall       # remove agents/skills do time (preserva steering/docs do projeto)
 ```
 
-`--stack dotnet|webforms|flutter` instala só o agente `dev-*` do stack informado (mais os 6 papéis stack-agnósticos: orchestrator, spec-analyst, qa-blackbox, reviewer-spec, reviewer-code, auditor). Os 4 arquivos de `steering/guidelines/` (dotnet/webforms/flutter/oracle) vão **sempre juntos, independente do `--stack`** — `reviewer-code`/`reviewer-spec` são core, instalados em todo stack, e revisam qualquer diff do repo; são `.md` pequenos, o custo de bloat é irrelevante. Repo multi-stack (ex.: backend .NET + app Flutter) → omita `--stack` e pode manualmente o(s) `dev-*` que sobrar sem uso (`.kiro/agents/dev-*.json` + `.md`) — instalar `dev-flutter` num repo sem Flutter é ruído que pode confundir o orchestrator na hora de rotear.
+`--stack dotnet|webforms|flutter` instala só o agente `dev-*` do stack informado (mais os 6 papéis stack-agnósticos: orchestrator, spec-analyst, qa-blackbox, reviewer-spec, reviewer-code, auditor). Os 5 arquivos de `steering/guidelines/` (dotnet/webforms/flutter/oracle/typescript) vão **sempre juntos, independente do `--stack`** — `reviewer-code`/`reviewer-spec` são core, instalados em todo stack, e revisam qualquer diff do repo; são `.md` pequenos, o custo de bloat é irrelevante. `typescript.md` não tem `dev-*`/`--stack` dedicado (sem `dev-node` no elenco) — cobre projetos TS/Node só via `fileMatch` (`**/*.ts*`), mesmo esquema dos demais. Repo multi-stack (ex.: backend .NET + app Flutter) → omita `--stack` e pode manualmente o(s) `dev-*` que sobrar sem uso (`.kiro/agents/dev-*.json` + `.md`) — instalar `dev-flutter` num repo sem Flutter é ruído que pode confundir o orchestrator na hora de rotear.
 
 Cada agente vai em **dois formatos**: `.json` (a CLI do Kiro lê este) e `.md` com frontmatter (o IDE lê este) — gerados a partir da mesma fonte (`agents/*.json` no central; `scripts/gen-agent-md.sh` gera o `.md`). Os dois sempre convivem no destino; não edite o `.md` à mão.
 
@@ -282,7 +282,7 @@ Script único, determinístico: `skills/merge-gate/scripts/check-gates.sh`. Repr
 | `steering/escalation-rules.md`                            | ambiguidade → parar e perguntar, nunca chutar                    |
 | `steering/quality-gates.md`                               | a tabela da seção 9 acima, injetada sempre                       |
 | `steering/workflow.md`                                    | o diagrama do ciclo completo                                     |
-| `steering/guidelines/{dotnet,webforms,flutter,oracle}.md` | convenções por stack, só carregam no arquivo certo (`fileMatch`) |
+| `steering/guidelines/{dotnet,webforms,flutter,oracle,typescript}.md` | convenções por stack, só carregam no arquivo certo (`fileMatch`) |
 | `steering/product.md` / `tech.md` / `structure.md`        | o que é este projeto (você escreve/confirma)                     |
 | `steering/retro-learnings.md`                             | regras nascidas de falhas reais deste projeto                    |
 

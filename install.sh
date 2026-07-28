@@ -86,9 +86,11 @@ stack_dev_agents() {
 
 stack_guidelines() {
   # reviewer-code/reviewer-spec são CORE_AGENTS instalados em todo stack e revisam
-  # qualquer diff do repo — por isso os 4 guideline files sempre vão juntos,
+  # qualquer diff do repo — por isso os 5 guideline files sempre vão juntos,
   # independente do --stack (são .md pequenos; o custo de bloat é irrelevante).
-  echo "dotnet.md webforms.md flutter.md oracle.md"
+  # typescript.md não tem --stack/dev-* dedicado (sem dev-node no elenco) — cobre
+  # projetos TS/Node (ex.: Firebase Functions) só via fileMatch, mesmo esquema.
+  echo "dotnet.md webforms.md flutter.md oracle.md typescript.md"
 }
 
 # manifesto JSON em $VERFILE — substitui o antigo arquivo de uma linha (versão em
