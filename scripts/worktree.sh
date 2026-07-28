@@ -58,7 +58,12 @@ case "$CMD" in
       # working tree do worktree QA no Windows não sincronizava com o padrão sparse.
       git -C "$ROOT" config extensions.worktreeConfig true
       git -C "$WTQA" sparse-checkout init --no-cone
-      git -C "$WTQA" sparse-checkout set "${SPARSE[@]}"
+      # MSYS_NO_PATHCONV=1: no Git Bash/MSYS (Windows), argumentos que parecem path
+      # POSIX absoluto (ex.: '!/src/') são auto-convertidos pro path Windows real
+      # (viravam algo como '!C:/Program Files/Git/src/') — o padrão nunca casava
+      # com nada e o sparse-checkout não excluía src/ de verdade. Sem efeito em
+      # bash não-MSYS (Linux/macOS a variável é simplesmente ignorada).
+      MSYS_NO_PATHCONV=1 git -C "$WTQA" sparse-checkout set "${SPARSE[@]}"
       echo "OK worktree QA: $WTQA (branch qa/pbi/$ID, SEM$(printf ' %s/' $CODE_DIRS)) — sessão do qa-blackbox roda aqui"
       exit 0
     fi

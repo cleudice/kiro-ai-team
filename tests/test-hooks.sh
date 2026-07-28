@@ -186,20 +186,31 @@ cd "$TMP" || exit 1
 # format-dotnet.sh / format-flutter.sh — guarda de toolchain (sem SDK = exit 0)
 # e resolução de arquivo via lib.sh
 # =========================================================================
-# PATH controlado SEM as toolchains (a máquina do CI pode ter dotnet real —
-# symlinca só as ferramentas base num bin/ próprio)
-STUB="$TMP/stubbin"; mkdir -p "$STUB"
-for t in bash sh git grep sed find dirname basename mktemp stat sort head tail cat rm tr ls env printf touch; do
-  p="$(command -v "$t" 2>/dev/null || true)"; [ -n "$p" ] && ln -sf "$p" "$STUB/$t"
+# PATH controlado SEM as toolchains (a máquina do CI pode ter dotnet real).
+# Antes isto symlinkava cada ferramenta base por nome num bin/ isolado — no
+# Windows/MSYS quebrava: binários MSYS (bash, git, grep...) dependem de DLLs
+# (msys-2.0.dll etc.) que vivem ao lado do executável real em /usr/bin;
+# symlink/cópia isolado sem essas DLLs falha ao carregar ("cannot open shared
+# object file"), e o hook saía 127 em vez do 0 esperado. Em vez de reconstruir
+# um PATH do zero, filtra o PATH REAL removendo só os diretórios que de fato
+# contêm dotnet/dart — todo o resto (e as DLLs adjacentes) permanece intacto.
+FILTERED_PATH=""
+_old_ifs="$IFS"; IFS=':'
+for d in $PATH; do
+  if [ -x "$d/dotnet" ] || [ -x "$d/dotnet.exe" ] || [ -x "$d/dart" ] || [ -x "$d/dart.exe" ]; then
+    continue
+  fi
+  FILTERED_PATH="${FILTERED_PATH:+$FILTERED_PATH:}$d"
 done
+IFS="$_old_ifs"
 FD="$TMP/fake-dotnet"; mkdir -p "$FD/src"; cd "$FD" || exit 1
 git init -q -b main; git config user.email t@t.com; git config user.name t
 echo 'class A {}' > src/A.cs
 expect_exit 0 "format-dotnet: sem 'dotnet' no PATH sai 0 (máquina sem SDK não fica com save vermelho)" -- \
-  env PATH="$STUB" bash "$HS/format-dotnet.sh" src/A.cs
+  env PATH="$FILTERED_PATH" bash "$HS/format-dotnet.sh" src/A.cs
 echo 'void main() {}' > src/a.dart
 expect_exit 0 "format-flutter: sem 'dart' no PATH sai 0" -- \
-  env PATH="$STUB" bash "$HS/format-flutter.sh" src/a.dart
+  env PATH="$FILTERED_PATH" bash "$HS/format-flutter.sh" src/a.dart
 cd "$TMP" || exit 1
 
 # newest_of da lib: devolve por MTIME, não por ordem alfabética (bug 1.7.0)

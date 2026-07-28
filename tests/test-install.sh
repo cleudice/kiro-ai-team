@@ -105,13 +105,18 @@ assert_exists "$K3/skills/skill-fantasma/SKILL.md"
 # simula que skill-fantasma FOI instalada por uma versão anterior do time
 # (registrada no manifesto) — só assim a poda-por-manifesto (B1) a reconhece
 # como "nossa" e a remove; sem isso ela seria tratada como artefato do projeto.
+# path via sys.argv (não interpolado na string do script): no Git Bash/MSYS
+# (Windows), a auto-conversão de path do MSYS só atua em argumentos que SÃO o
+# path — embutido dentro do texto do script, o Python nativo do Windows lia
+# '/tmp/...' como raiz do drive atual e dava FileNotFoundError (mesma classe de
+# bug do selftest.sh: só o padrão de install.sh:write_manifest é seguro aqui).
 python3 -c "
-import json
-p = '$K3/.kiro-ai-team-version'
+import json, sys
+p = sys.argv[1]
 d = json.load(open(p, encoding='utf-8'))
 d['skills'] = d.get('skills', []) + ['skill-fantasma']
 json.dump(d, open(p, 'w', encoding='utf-8'), indent=2)
-"
+" "$K3/.kiro-ai-team-version"
 
 bash "$INSTALL" "$D3" --update >"$TMP"/install-out-3b.log 2>&1
 assert_absent "$K3/skills/skill-fantasma"

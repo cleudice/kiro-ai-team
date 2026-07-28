@@ -7,15 +7,21 @@ for f in install.sh selftest.sh scripts/*.sh skills/*/scripts/*.sh hooks/scripts
 for f in agents/*.json mcp/*.json hooks/*.json hooks/diagnostics/*.json; do
   [ -e "$f" ] || continue
   # path via sys.argv (não interpolado): path com aspa simples quebraria o literal
-  python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$f" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
+  python3 -c "import json,sys;json.load(open(sys.argv[1], encoding='utf-8'))" "$f" 2>/dev/null && ok "json: $f" || bad "JSON inválido: $f"; done
 python3 - << 'PY' || FAIL=1
 import re,sys,glob,os,json
+# stdout no Windows usa o codepage do console (cp1252 etc.) por padrão, não
+# UTF-8 — os símbolos ✔/✘ usados nas mensagens abaixo quebravam o print com
+# UnicodeEncodeError, escondendo o resultado real (a falha ficava atrás do
+# traceback). reconfigure força UTF-8 na saída, igual ao 'errors' abaixo evita
+# nova exceção se ainda assim algum caractere não for mapeável.
+sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')
 fail=[]
 for p in glob.glob('skills/*/SKILL.md'):
     # basename(dirname(p)), não split('/')[1]: glob.glob no Windows devolve
     # separador '\\' — split('/') não achava nada e IndexError quebrava o
     # selftest inteiro antes de chegar nos testes de verdade.
-    s=open(p).read(); folder=os.path.basename(os.path.dirname(p))
+    s=open(p, encoding='utf-8').read(); folder=os.path.basename(os.path.dirname(p))
     m=re.match(r'^---\n(.*?)\n---\n', s, re.S)
     if not m: fail.append(f"{p}: sem frontmatter"); continue
     fm=m.group(1)
@@ -26,7 +32,7 @@ for p in glob.glob('skills/*/SKILL.md'):
     if len(d.group(1))>1024: fail.append(f"{p}: description >1024 chars")
     if len(s.splitlines())>500: fail.append(f"{p}: corpo >500 linhas")
 for p in glob.glob('agents/*.json'):
-    d = json.load(open(p))
+    d = json.load(open(p, encoding='utf-8'))
     for entries in d.get('hooks', {}).values():
         for e in entries:
             cmd = e.get('command', '')
@@ -62,7 +68,12 @@ for p in glob.glob('agents/*.md'):
 # entram nesta checagem — são cobertos pelos casos por escopo em test-install.sh.
 installed_sh = set()
 for pat in ('skills/**/*.sh', 'hooks/scripts/*.sh', 'scripts/*.sh'):
-    installed_sh.update(glob.glob(pat, recursive=True))
+    # .replace('\\','/'): glob.glob no Windows devolve separador '\\' — os
+    # caminhos citados em doc/agente usam '/', então a comparação abaixo (`rel
+    # not in installed_sh`) nunca batia e todo agente/skill que cita um .sh
+    # reprovava aqui, mesmo instalado corretamente (mesma classe de bug do
+    # IndexError do frontmatter, corrigido acima, mas neste check separado).
+    installed_sh.update(f.replace('\\', '/') for f in glob.glob(pat, recursive=True))
 sh_doc_sources = (glob.glob('agents/*.json') + glob.glob('agents/*.md') + glob.glob('hooks/*.json')
                    + glob.glob('skills/*/SKILL.md')
                    + [d for d in ('OPERACAO.md', 'README.md', 'steering-base/templates/AGENTS.md') if os.path.exists(d)])
@@ -76,13 +87,17 @@ for p in sh_doc_sources:
 # (hoje bate por sorte nos 15; isto vira reprovação mecânica se algum dia divergir).
 skill_names = {os.path.basename(os.path.dirname(p)) for p in glob.glob('skills/*/SKILL.md')}
 for p in glob.glob('agents/*.json'):
-    d = json.load(open(p))
+    d = json.load(open(p, encoding='utf-8'))
     for r in d.get('resources', []):
         if r.startswith('skill://') and r[len('skill://'):] not in skill_names:
             fail.append(f"{p}: resource {r} não corresponde a nenhuma pasta em skills/")
 for p in glob.glob('steering-base/**/*.md', recursive=True):
-    s=open(p).read()
-    if 'templates/' in p or '/global/' in p: continue
+    s=open(p, encoding='utf-8').read()
+    # p.replace('\\','/'): glob.glob no Windows devolve separador '\\' — o teste
+    # 'templates/' in p (literal com '/') nunca batia, então templates/AGENTS.md
+    # (que não tem inclusion: de propósito) reprovava aqui em toda máquina Windows.
+    pn = p.replace('\\', '/')
+    if 'templates/' in pn or '/global/' in pn: continue
     if not s.startswith('---'): fail.append(f"{p}: sem frontmatter inclusion")
 link_docs = (['README.md','OPERACAO.md','mcp/README.md','CHANGELOG.md','hooks/VERIFY.md',
               'CONTRIBUTING.md','SECURITY.md']
@@ -90,16 +105,16 @@ link_docs = (['README.md','OPERACAO.md','mcp/README.md','CHANGELOG.md','hooks/VE
 for doc in link_docs:
     if not os.path.exists(doc): continue
     base = os.path.dirname(doc)
-    for l in re.findall(r'\]\(([^)#]+)\)', open(doc).read()):
+    for l in re.findall(r'\]\(([^)#]+)\)', open(doc, encoding='utf-8').read()):
         if l.startswith('http'): continue
         # link relativo resolve a partir do próprio doc
         if not (os.path.exists(os.path.join(base, l)) or os.path.exists(l)):
             fail.append(f"{doc}: link quebrado -> {l}")
 # OPERACAO.md é o único doc operacional agora — se um agente/skill sumir dele, é o
 # próximo CATALOGO desatualizado nascendo (M4).
-op = open('OPERACAO.md').read() if os.path.exists('OPERACAO.md') else ''
+op = open('OPERACAO.md', encoding='utf-8').read() if os.path.exists('OPERACAO.md') else ''
 for p in glob.glob('agents/*.json'):
-    name = json.load(open(p)).get('name') or os.path.splitext(os.path.basename(p))[0]
+    name = json.load(open(p, encoding='utf-8')).get('name') or os.path.splitext(os.path.basename(p))[0]
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: agente '{name}' não referenciado")
 for p in glob.glob('skills/*/SKILL.md'):
     name = os.path.basename(os.path.dirname(p))
@@ -107,14 +122,14 @@ for p in glob.glob('skills/*/SKILL.md'):
 # hooks/*.json e mcp/*.json também precisam aparecer referenciados em algum doc
 # operacional — mesmo raciocínio anti-drift acima (M4), agora cobrindo o que
 # ficou de fora na primeira rodada (B3 da segunda auditoria).
-mcp_readme = open('mcp/README.md').read() if os.path.exists('mcp/README.md') else ''
+mcp_readme = open('mcp/README.md', encoding='utf-8').read() if os.path.exists('mcp/README.md') else ''
 HOOK_TRIGGERS = {'PostFileSave', 'PostFileCreate', 'PostTaskExec', 'SessionStart', 'preToolUse'}
 for p in sorted(glob.glob('hooks/*.json')):
     base = os.path.basename(p)
     name = base[:-len('.json')]
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: hook '{name}' não referenciado")
     # trigger fora do conjunto conhecido = typo silencioso (hook nunca dispara)
-    hj = json.load(open(p))
+    hj = json.load(open(p, encoding='utf-8'))
     trg = (hj.get('when') or {}).get('type') or hj.get('trigger')
     if trg and trg not in HOOK_TRIGGERS:
         fail.append(f"{p}: trigger '{trg}' fora do conjunto conhecido {sorted(HOOK_TRIGGERS)}")
@@ -137,8 +152,8 @@ for p in sorted(glob.glob('mcp/*.json')):
 # VERSION bate com o topo VERSIONADO do CHANGELOG (ignora [Unreleased]) — deriva
 # duas vezes é como a doc contradisse o código antes (ver OPERACAO.md intro).
 if os.path.exists('VERSION') and os.path.exists('CHANGELOG.md'):
-    ver = open('VERSION').read().strip()
-    chg = open('CHANGELOG.md').read()
+    ver = open('VERSION', encoding='utf-8').read().strip()
+    chg = open('CHANGELOG.md', encoding='utf-8').read()
     m = re.search(r'^## \[(\d+\.\d+\.\d+)\]', chg, re.M)
     if m and m.group(1) != ver:
         fail.append(f"VERSION ({ver}) != topo versionado do CHANGELOG.md ({m.group(1)})")
