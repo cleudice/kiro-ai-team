@@ -11,7 +11,7 @@
 #   --dry-run     mostra o que seria feito (copiado/removido/gravado) sem tocar em nada
 #   --uninstall   remove agents/skills instalados por este installer (a partir do
 #                 próprio manifesto) do destino/--kiro-home; NUNCA toca steering do
-#                 projeto (product/tech/structure/retro-learnings), docs/ nem AGENTS.md
+#                 projeto (product/tech/structure/retro-learnings), docs/ nem AGENTS.md/CLAUDE.md
 #                 (são conteúdo do projeto, não do time)
 #   --prune-unmanaged   (só --update) poda TODO agents/*.json|*.md e skills/* que não
 #                 estiver no conjunto atual do central — inclusive agentes/skills
@@ -73,7 +73,7 @@ case "$STACK" in ""|dotnet|webforms|flutter|multi) ;; *) echo "stack inválido: 
 # _x <cmd...> — executa, ou só anuncia sob --dry-run (nunca muta o disco nesse modo)
 _x() { if [ "$DRYRUN" = "1" ]; then echo "  (dry-run) $*"; else "$@"; fi; }
 
-CORE_AGENTS="orchestrator.json spec-analyst.json qa-blackbox.json reviewer-spec.json reviewer-code.json auditor.json"
+CORE_AGENTS="orchestrator.json spec-analyst.json qa-blackbox.json reviewer-spec.json reviewer-code.json auditor.json explore.json"
 
 stack_dev_agents() {
   case "$STACK" in
@@ -289,6 +289,17 @@ install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default:
     [ -f "$K/steering/$t.md" ] || _x cp "$SRC/steering-base/templates/$t.md" "$K/steering/$t.md"
   done
   [ -f "$P/AGENTS.md" ] || { _x cp "$SRC/steering-base/templates/AGENTS.md" "$P/AGENTS.md"; echo "  ✔ AGENTS.md → raiz do projeto (padrão aberto p/ Codex/Cursor/etc.)"; }
+  # Claude Code NÃO lê AGENTS.md sozinho — só CLAUDE.md (confirmado: issue aberta
+  # anthropics/claude-code#34235; a própria doc da Anthropic recomenda o import
+  # '@AGENTS.md' dentro de um CLAUDE.md como a forma suportada de convergir os
+  # dois). Sem isso, uma sessão Claude Code no projeto nunca via as regras do
+  # time. Só grava se ausente — nunca sobrescreve CLAUDE.md com conteúdo próprio.
+  if [ ! -f "$P/CLAUDE.md" ]; then
+    if [ "$DRYRUN" != "1" ]; then
+      printf '# CLAUDE.md\n\n@AGENTS.md\n' > "$P/CLAUDE.md"
+    fi
+    echo "  ✔ CLAUDE.md → raiz do projeto (import de AGENTS.md — Claude Code não lê AGENTS.md sozinho)"
+  fi
   # camada fina de scripts (B1/B3): worktree.sh + kiro-paths.sh SEMPRE aqui, no
   # caminho fixo .kiro/scripts/, mesmo em hybrid onde agents/skills reais moram
   # em $KIRO_HOME — é o que faz `.kiro/scripts/worktree.sh start <PBI>` (citado
@@ -340,7 +351,7 @@ uninstall_engine() {  # $1 = raiz .kiro instalada (engine) — remove só o que 
   for d in "$K/hooks/scripts" "$K/hooks" "$K/agents" "$K/skills" "$K/scripts"; do
     [ -d "$d" ] && _x rmdir "$d" 2>/dev/null || true
   done
-  echo "  ✔ engine desinstalada de $K — steering/docs/AGENTS.md do projeto preservados (não são do time, são conteúdo do projeto)"
+  echo "  ✔ engine desinstalada de $K — steering/docs/AGENTS.md/CLAUDE.md do projeto preservados (não são do time, são conteúdo do projeto)"
 }
 
 # uninstall_gitignore_lines <raiz do projeto> — remove APENAS as 3 linhas que
@@ -358,7 +369,7 @@ uninstall_gitignore_lines() {
 # real some de $KIRO_HOME via uninstall_engine acima, mas a camada FINA de
 # scripts (worktree.sh/kiro-paths.sh + .kiro-ai-team-paths) instalada no
 # projeto por install_project_layer (B1/B3) fica órfã se não for limpa aqui.
-# Nunca toca steering/docs/AGENTS.md — mesma regra do uninstall_engine.
+# Nunca toca steering/docs/AGENTS.md/CLAUDE.md — mesma regra do uninstall_engine.
 uninstall_project_scripts() {
   local K="$1"
   [ -f "$K/$VERFILE" ] || return 0
@@ -369,6 +380,24 @@ uninstall_project_scripts() {
   # posterior leria 'scripts' de um manifesto mentiroso
   _x rm -f "$K/$VERFILE"
   echo "  ✔ camada fina de scripts removida de $K (steering/docs preservados)"
+}
+
+# seed_global_steering <raiz KIRO_HOME> — grava steering/principios.md se ausente
+# (nunca sobrescreve: são princípios pessoais do usuário, não conteúdo do time).
+# Roda tanto em --scope global quanto em --scope hybrid: os dois instalam a engine
+# em $KIRO_HOME (ver install_engine acima) — antes desta correção, só o global
+# "puro" semeava este arquivo; hybrid saía silenciosamente sem ele, e quem usava
+# hybrid (o caso mais comum de máquina pessoal com múltiplos repos) nunca ganhava
+# o template, tendo que descobrir sozinho que precisava criar um por conta própria.
+seed_global_steering() {
+  local K="$1"
+  _x mkdir -p "$K/steering"
+  if [ ! -f "$K/steering/principios.md" ]; then
+    _x cp "$SRC/steering-base/global/principios.md" "$K/steering/principios.md"
+    echo "  ✔ steering global → $K/steering/principios.md (edite: são SEUS princípios)"
+  else
+    echo "  ↷ steering global já existe (preservado): $K/steering/principios.md"
+  fi
 }
 
 warn_version_mismatch() {
@@ -408,13 +437,7 @@ case "$SCOPE" in
     ;;
   global)
     install_engine "$KIRO_HOME"
-    _x mkdir -p "$KIRO_HOME/steering"
-    if [ ! -f "$KIRO_HOME/steering/principios.md" ]; then
-      _x cp "$SRC/steering-base/global/principios.md" "$KIRO_HOME/steering/principios.md"
-      echo "  ✔ steering global → $KIRO_HOME/steering/principios.md (edite: são SEUS princípios)"
-    else
-      echo "  ↷ steering global já existe (preservado): $KIRO_HOME/steering/principios.md"
-    fi
+    seed_global_steering "$KIRO_HOME"
     echo "  ⚠ quirks: workspace vence global em conflito; evite fileMatch no global; arquivo real, sem symlink; a IDE lê sempre \$HOME/.kiro (ignora a variável de ambiente KIRO_HOME — só a CLI a respeita); use --kiro-home só se essa engine for consumida via CLI."
     echo "  ℹ steering de PROJETO continua por workspace. Rode depois, em cada repo:"
     echo "      ./install.sh <projeto> --scope hybrid"
@@ -425,6 +448,7 @@ case "$SCOPE" in
     # de divergência nunca dispararia (era código morto)
     warn_version_mismatch
     install_engine "$KIRO_HOME"
+    seed_global_steering "$KIRO_HOME"
     # sem engine local: evita duplicidade/conflito de nomes de agente
     install_project_layer "$DEST" "$KIRO_HOME"
     ;;

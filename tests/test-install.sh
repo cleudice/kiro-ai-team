@@ -45,6 +45,11 @@ assert_exists "$K1/steering/tech.md"
 assert_exists "$K1/steering/structure.md"
 assert_exists "$K1/steering/retro-learnings.md"
 assert_exists "$D1/AGENTS.md"
+# 1.11 — CLAUDE.md importando AGENTS.md (Claude Code não lê AGENTS.md sozinho)
+assert_exists "$D1/CLAUDE.md"
+grep -qxF '@AGENTS.md' "$D1/CLAUDE.md" && pass "CLAUDE.md importa @AGENTS.md" \
+  || fail "CLAUDE.md sem a linha de import @AGENTS.md"
+N=$((N+1))
 
 assert_exists "$D1/docs/issues"
 assert_exists "$D1/docs/reviews"
@@ -81,6 +86,17 @@ N=$((N+1))
 # e dos hooks format-*) — nenhum teste cobria isso antes
 assert_exists "$K1/hooks/scripts/qa-blackbox-guard.sh"
 assert_exists "$K1/hooks/scripts/format-dotnet.sh"
+
+# =========================================================================
+# 1c) 1.11 — CLAUDE.md nunca sobrescreve conteúdo que o projeto já tinha
+# =========================================================================
+D1C="$TMP/proj-claude-existente"; mkdir -p "$D1C"
+printf 'conteúdo próprio do projeto, anterior ao install\n' > "$D1C/CLAUDE.md"
+bash "$INSTALL" "$D1C" --stack dotnet >"$TMP"/install-out-1c.log 2>&1
+grep -qxF 'conteúdo próprio do projeto, anterior ao install' "$D1C/CLAUDE.md" \
+  && pass "CLAUDE.md pré-existente preservado (install não sobrescreve)" \
+  || fail "CLAUDE.md pré-existente foi sobrescrito pelo install"
+N=$((N+1))
 
 # =========================================================================
 # 2) install sem --stack: todos os 3 devs presentes (multi = sem podar)
@@ -190,6 +206,9 @@ assert_exists "$KDH/scripts/kiro-paths.sh"
 assert_exists "$KDH/scripts/run-hook.sh"
 assert_exists "$KDH/.kiro-ai-team-paths"
 assert_exists "$KH2/agents/orchestrator.json"    # engine de verdade mora em KIRO_HOME
+# 1.11 — hybrid também semeia steering global (antes só --scope global "puro" o
+# fazia; quem usava hybrid nunca ganhava o template de principios.md)
+assert_exists "$KH2/steering/principios.md"
 RESOLVED_HYBRID="$(bash "$KDH/scripts/kiro-paths.sh")"
 [ "$RESOLVED_HYBRID" = "$KH2" ] && pass "kiro-paths.sh (hybrid) resolve pra KIRO_HOME" \
   || fail "kiro-paths.sh (hybrid) resolveu '$RESOLVED_HYBRID', esperado '$KH2'"

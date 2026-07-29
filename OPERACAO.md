@@ -29,8 +29,8 @@ Depois do install:
 1. **MCP** — mescle em `.kiro/settings/mcp.json` apenas os fragmentos de `kiro-ai-team/mcp/` que este repo usa (Jira/Bitbucket? GitHub? Firebase? SQLcl?). Preencha credenciais locais. Donos e quirks de cada fragmento: [mcp/README.md](mcp/README.md).
 2. **Hooks** — a regra completa (o que é opcional, o que já vem embutido, o que nunca deve ser instalado) está em [hooks/README.md](hooks/README.md). Resumo: copie de `kiro-ai-team/hooks/` para `.kiro/hooks/` os `*.json` que fizerem sentido pro stack do projeto (`format-dotnet`/`format-flutter`/`format-oracle`/`task-checkpoint`/`preflight-branch`/`issue-intake`); os `.sh` que eles chamam e os guards por-agente (`qa-blackbox`, `readonly-guard`) já vêm com a engine — nada mais pra copiar. Confirme no painel "Agent Hooks" que os hooks aparecem. Status de verificação empírica de cada trigger: [hooks/VERIFY.md](hooks/VERIFY.md).
 3. **Steering do projeto** — preencha `product.md`, `tech.md` (build/test commands!) e `structure.md`. Atalho: rode a skill `reverse-engineer-project`, que gera `docs/context/` e preenche os templates vazios.
-4. **Commit do `.kiro/` + `AGENTS.md`** — o time é versionado junto do código; quem clonar o repo herda o time.
-5. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; confirme no painel "Agent Steering & Skills" que os 6-9 agentes e as skills aparecem antes do primeiro PBI.
+4. **Commit do `.kiro/` + `AGENTS.md` + `CLAUDE.md`** — o time é versionado junto do código; quem clonar o repo herda o time. `CLAUDE.md` é só `@AGENTS.md` (import nativo) — Claude Code não lê `AGENTS.md` sozinho (confirmado: [anthropics/claude-code#34235](https://github.com/anthropics/claude-code/issues/34235)); sem o import, uma sessão Claude Code no projeto nunca vê as regras do time.
+5. **Reinicie o IDE/CLI (ou reload window)** — instalação nova adiciona agentes/skills; confirme no painel "Agent Steering & Skills" que os 7-10 agentes e as skills aparecem antes do primeiro PBI.
 6. **(Recomendado) `kiroAgent.trustedCommands`** — sem isso, todo `dotnet test`/`flutter test`/`check-gates.sh` pede aprovação manual. Configure em Settings → Kiro Agent: Trusted Commands (global ou por workspace) os comandos de build/test do seu stack, com `*` no final pra aceitar argumentos (ex.: `"dotnet test *"`, `"git status *"`). Nunca confie largo em comandos destrutivos (`git push`, `git reset --hard`, `npx *`) nem em `check-gates.sh` (recebe `--test-cmd` arbitrário — aprovação manual aqui é intencional).
 
 Sanidade: `.kiro/.kiro-ai-team-version` é um manifesto JSON (`version`, `scope`, `stack`, `agents`, `skills`, `scripts`) — confira o campo `version`. `.kiro/.kiro-ai-team-paths` (`KIRO_ENGINE=<raiz real da engine>`) e `.kiro/scripts/kiro-paths.sh` existem em TODO escopo — é o que faz `.kiro/scripts/worktree.sh` e o `check-gates.sh` resolverem certo mesmo quando a engine mora em `$KIRO_HOME` (hybrid/global). `--update` sem `--stack` reaproveita o `stack` gravado aqui e poda agentes/skills que saíram do central **comparando contra o que o manifesto anterior registra como instalado pelo time** — agente/skill próprio do projeto (nunca instalado por este installer) nunca é tocado, mesmo que não esteja no conjunto atual do central (regra de ouro da dualidade, ver README). Manifesto ausente/em formato legado → `--update` não poda nada por padrão (evita apagar algo às cegas); `--prune-unmanaged` converge o diretório real pro conjunto atual do central, à moda antiga — use só quando tiver certeza de que não há artefato próprio do projeto ali.
@@ -195,7 +195,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 - **Entrada**: `requirements.md` + contratos de `design.md`. **Saída**: `docs/tests-spec/<slug>.md` + código de teste.
 - **Não faz**: não lê `src/`, `docs/context/` nem a conversa dos devs. Não ajusta teste para acomodar implementação.
 - **Regra especial**: se o PBI não tiver nenhuma task de `dev-*` (design decidiu zero mudança em `src/`), ele também é dono do gate G2 — roda `verify-change` e produz `docs/reviews/<PBI>-verify.md`. Trabalha sempre dentro do worktree do PBI, nunca no working tree principal. Nomes/comentários do código de teste seguem o idioma do código-fonte real (detectado pelos contratos do `design.md`), não o idioma padrão do time.
-- **Mecanização (defesa em profundidade)**: um hook `preToolUse` embutido no próprio `agents/qa-blackbox.json` tenta bloquear leitura dos diretórios de código (`Código-fonte:` do `tech.md`; default `src/`). O contrato exato de payload que o Kiro passa a esse tipo de hook não é documentado publicamente — o script falha ABERTO (não bloqueia) quando não reconhece o formato, então isto reforça a regra, não a garante sozinho.
+- **Mecanização (duas camadas)**: `agents/qa-blackbox.md` declara `permissions` (`deny` em `fs_read` sobre os diretórios de código) — aplicado pelo próprio Kiro antes da tool rodar, confirmado no schema do bundle instalado (1ª camada, determinística). O hook `preToolUse` embutido é a 2ª camada, best-effort: lê `Código-fonte:` do `tech.md` em runtime, mas o payload interno de cada tool (`tool_input`) não é documentado publicamente por tool — o script falha ABERTO quando não reconhece o formato. Reforço, não substituto da 1ª camada.
 
 ### `reviewer-spec` / `reviewer-code`
 
@@ -213,6 +213,14 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 - **Entrada**: histórico de merges `pbi/*` desde a última auditoria. **Saída**: briefs `docs/issues/AUDIT-*.md`.
 - **Não faz**: não corrige — só gera issues para o próximo ciclo.
 
+### `explore`
+
+- **O quê**: pesquisa/mapeamento somente-leitura — investiga código, rastreia chamadores/dependências, reporta com caminho de arquivo citado. Não é dono de nenhum gate nem de nenhuma skill do ciclo.
+- **Quando usar**: antes de planejar uma mudança, ou quando qualquer papel precisa de contexto ("onde vive X", "quem chama Y") sem gastar o modelo caro da sessão principal. Bom candidato ao tier de modelo mais barato (ver nota de tiering acima) — papel curto, somente leitura.
+- **Como usar**: "explore, onde fica a lógica de cálculo de desconto?" — sessão nova ou aba dedicada.
+- **Entrada**: uma pergunta específica. **Saída**: resposta + evidência citada (≥2 caminhos) + `[confirm: ...]` pro que não deu pra verificar.
+- **Não faz**: não edita nada, não roda comando que muda estado, não expande em auditoria completa sem pedido explícito.
+
 ---
 
 ## 8. Referência — skills
@@ -224,7 +232,7 @@ PBI que atravessa backend + app = **um brief por repo, vinculados** (campo `vinc
 
 ### Spec (trilho feature)
 
-- **`write-requirements` → `write-design` → G0 → `write-tasks`** — cadeia do trilho feature, executada pelo `spec-analyst` (G0 = `review-spec` em modo draft, pelo `reviewer-spec` em aba nova, ANTES de congelar as tasks). No trilho manutenção, `write-tasks` mínimo é executado pelo **orchestrator** direto do brief. `write-tasks` embute o bloco de gates G1–G5 no final do `tasks.md` — não pule esse passo mesmo no trilho manutenção. Toda task e todo gate leva o agente dono entre parênteses (`dev-dotnet`, `qa-blackbox`...) — é o que permite ao orchestrator rotear sem chutar.
+- **`refine-brief` (opcional)** → **`write-requirements` → `write-design` → G0 → `write-tasks`** — cadeia do trilho feature, executada pelo `spec-analyst` (G0 = `review-spec` em modo draft, pelo `reviewer-spec` em aba nova, ANTES de congelar as tasks). `refine-brief` só entra quando o brief comporta mais de uma direção de PRODUTO razoável (não um detalhe faltando — isso é escalation-rules dentro do write-requirements): explora 2-4 direções, critica risco/força de cada uma, converge com o humano, e atualiza o próprio brief antes de detalhar requisito sobre uma base ainda incerta. Não é passo obrigatório — a maioria dos briefs já chega com direção clara do `triage-issue`. No trilho manutenção, `write-tasks` mínimo é executado pelo **orchestrator** direto do brief (nunca passa por `refine-brief` — bug/manutenção já é concreto por natureza). `write-tasks` embute o bloco de gates G1–G5 no final do `tasks.md` — não pule esse passo mesmo no trilho manutenção. Toda task e todo gate leva o agente dono entre parênteses (`dev-dotnet`, `qa-blackbox`...) — é o que permite ao orchestrator rotear sem chutar.
 
 ### Execução
 
@@ -347,7 +355,7 @@ Gerado 1x pelo `reverse-engineer-project`; cada eixo ≤ ~1 página com caminhos
 | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | specs requirements/design/tasks, execução de tasks                                                                | conteúdo/formato EARS + gates embutidos via skills `write-*`                      |
 | steering workspace + global (`~/.kiro/steering`), AGENTS.md, inclusion modes                                      | as 3 camadas, templates, política de sobrescrita                                  |
-| agents (CLI `.json` / IDE `.md`+frontmatter), skills SKILL.md, hooks (globais + por-agente), MCP (user+workspace) | os 9 papéis, 14 skills, fragmentos, escopos do installer, gerador `.md`→`.json`   |
+| agents (CLI `.json` / IDE `.md`+frontmatter), skills SKILL.md, hooks (globais + por-agente), MCP (user+workspace) | os 10 papéis, 15 skills, fragmentos, escopos do installer, gerador `.md`→`.json`   |
 | "Generate Steering Docs" (foundation files)                                                                       | `reverse-engineer-project` (docs/context por eixos + preenchimento dos templates) |
 
 Quirks conhecidos consolidados (os do bundle, marcados **[bundle]**, foram confirmados lendo o schema real do Kiro instalado — `kiro.kiro-agent/dist/extension.js`; os demais seguem só da doc pública): fileMatch global não injeta; symlink em `~/.kiro` ignorado; a IDE ignora a variável de ambiente `KIRO_HOME` — usa sempre `$HOME/.kiro` **[bundle]**; workspace vence global; a IDE carrega `.md` E `.json` em `.kiro/agents/` mas descarta o par do mesmo nome que colide (vence o de ordem alfabética maior — por isso este repo trata `.md` como fonte e `.json` como gerado, não os dois manualmente) **[bundle]**; `matcher` de hook `preToolUse`/`postToolUse` casa com o **nome real da tool** (`read_file`, `str_replace`, `execute_bash`...), não com a capability (`fs_read`/`fs_write` nunca aparecem como `tool_name`) **[bundle]**; `skill://<nome>` sozinho nunca resolve — precisa ser `skill://.kiro/skills/<nome>/SKILL.md` ou `skill://~/.kiro/skills/<nome>/SKILL.md` **[bundle]**; um agente só alcança MCP com `includeMcpJson: true` + tag `@mcp` em `tools` **[bundle]**.
@@ -357,7 +365,7 @@ Quirks conhecidos consolidados (os do bundle, marcados **[bundle]**, foram confi
 ## 15. Fluxo completo em uma linha por etapa
 
 ```
-triage-issue → write-requirements → write-design → G0 (review-spec draft) → write-tasks
+triage-issue → (refine-brief, se a direção for incerta) → write-requirements → write-design → G0 (review-spec draft) → write-tasks
   → task-preflight + Start task (nativo) ∥ write-blackbox-tests (worktree QA, sem src/)
   → verify-change → review-spec + review-code → merge-gate → resolve-issue
   → (a cada 5 merges) audit-integration + reset-counter → (falha repetida) retrospective

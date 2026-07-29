@@ -24,7 +24,9 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue (issues e cra
             └──────────────────────┬──────────────────────────────┘
                                    ▼  docs/issues/<ID>.md (brief normalizado)
                     ┌── trilho FEATURE ──┐        ┌─ trilho MANUTENÇÃO ─┐
-                    write-requirements    │        │ (pula spec formal)
+                    (refine-brief, se a  │        │ (pula spec formal)
+                     direção for incerta)│        │
+                    write-requirements    │        │
                     write-design          │        │
                     G0 review-spec draft  │        │
                     write-tasks ──────────┴────────┴─ write-tasks (mínimo, orchestrator)
@@ -56,6 +58,7 @@ Jira / Azure Boards / GitHub Issues / Crashlytics → triage-issue (issues e cra
 | `reviewer-spec` | diff vs requirements.md                              | ler conversa dos devs                                                            |
 | `reviewer-code` | qualidade, convenção, segurança                      | aprovar requisito                                                                |
 | `auditor`       | auditoria pós-integração do repo inteiro             | corrigir (só reporta)                                                            |
+| `explore`       | pesquisa/mapeamento somente-leitura, sob demanda     | editar qualquer arquivo, escrever conclusão sem citar caminho                    |
 
 > 📖 Setup, operação diária e referência completa (agentes, skills, gates, ciclo de vida dos artefatos): [OPERACAO.md](OPERACAO.md)
 

@@ -6,7 +6,7 @@ inclusion: always
 
 Entrada (Jira / Azure Boards / GitHub / Crashlytics) → `triage-issue` (issues e crashes) → brief em `docs/issues/`.
 
-- **Feature** → spec completa: `write-requirements` → `write-design` → revisão adversarial da spec (G0: `review-spec` em modo draft, reviewer-spec) → `write-tasks` em `.kiro/specs/<slug>/`.
+- **Feature** → spec completa: (`refine-brief` só se a direção do brief for genuinamente incerta) → `write-requirements` → `write-design` → revisão adversarial da spec (G0: `review-spec` em modo draft, reviewer-spec) → `write-tasks` em `.kiro/specs/<slug>/`.
 - **Manutenção** → `write-tasks` mínimo direto do brief (sem design formal; dono: orchestrator). Gates continuam obrigatórios.
 
 Execução: `task-preflight` (pré-flight/checkpoint) + "Start task" nativo do Kiro (worktree próprio) em paralelo com `write-blackbox-tests` (worktree QA separado, sem os diretórios de código do `tech.md`) → `verify-change` → `review-spec` + `review-code` → `merge-gate` → `resolve-issue` no tracker de origem.
