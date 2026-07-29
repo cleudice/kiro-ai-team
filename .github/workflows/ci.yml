@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: git identity (necessária pros fixtures de teste)
         shell: bash
         run: |
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: shellcheck (bash -n só pega sintaxe; -S warning porque os bugs P0/P1 do histórico eram exatamente quoting/array que 'error' deixa passar)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: PR que muda comportamento precisa bumpar VERSION + CHANGELOG
