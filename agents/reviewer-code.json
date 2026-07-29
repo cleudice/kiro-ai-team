@@ -7,15 +7,24 @@
     "write",
     "shell"
   ],
-  "resources": [
-    "skill://review-code"
+  "allowedTools": [
+    "read",
+    "write",
+    "shell"
   ],
-  "hooks": {
-    "preToolUse": [
-      {
-        "matcher": "fs_write",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/readonly-guard.sh\""
+  "resources": [
+    "skill://.kiro/skills/review-code/SKILL.md",
+    "skill://~/.kiro/skills/review-code/SKILL.md"
+  ],
+  "hooks": [
+    {
+      "name": "readonly-guard",
+      "trigger": "preToolUse",
+      "matcher": "^(fs_write|fs_append|str_replace|delete_file|edit_code|semantic_rename|smart_relocate)$",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/scripts/run-hook.sh readonly-guard.sh"
       }
-    ]
-  }
+    }
+  ]
 }

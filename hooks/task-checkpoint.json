@@ -7,7 +7,7 @@
       "trigger": "PostTaskExec",
       "action": {
         "type": "command",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/task-checkpoint.sh\""
+        "command": "bash .kiro/scripts/run-hook.sh task-checkpoint.sh"
       },
       "timeout": 300,
       "enabled": true

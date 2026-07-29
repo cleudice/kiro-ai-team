@@ -8,7 +8,7 @@
       "matcher": ".*\\.cs$",
       "action": {
         "type": "command",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/format-dotnet.sh\""
+        "command": "bash .kiro/scripts/run-hook.sh format-dotnet.sh"
       },
       "timeout": 120,
       "enabled": true

@@ -7,8 +7,15 @@
     "write",
     "shell"
   ],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell"
+  ],
   "resources": [
-    "skill://task-preflight",
-    "skill://verify-change"
+    "skill://.kiro/skills/task-preflight/SKILL.md",
+    "skill://~/.kiro/skills/task-preflight/SKILL.md",
+    "skill://.kiro/skills/verify-change/SKILL.md",
+    "skill://~/.kiro/skills/verify-change/SKILL.md"
   ]
 }

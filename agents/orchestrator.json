@@ -5,22 +5,39 @@
   "tools": [
     "read",
     "write",
-    "shell"
+    "shell",
+    "@mcp"
   ],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell",
+    "@mcp"
+  ],
+  "includeMcpJson": true,
   "resources": [
-    "skill://triage-issue",
-    "skill://reverse-engineer-project",
-    "skill://merge-gate",
-    "skill://resolve-issue",
-    "skill://write-tasks",
-    "skill://retrospective"
+    "skill://.kiro/skills/triage-issue/SKILL.md",
+    "skill://~/.kiro/skills/triage-issue/SKILL.md",
+    "skill://.kiro/skills/reverse-engineer-project/SKILL.md",
+    "skill://~/.kiro/skills/reverse-engineer-project/SKILL.md",
+    "skill://.kiro/skills/merge-gate/SKILL.md",
+    "skill://~/.kiro/skills/merge-gate/SKILL.md",
+    "skill://.kiro/skills/resolve-issue/SKILL.md",
+    "skill://~/.kiro/skills/resolve-issue/SKILL.md",
+    "skill://.kiro/skills/write-tasks/SKILL.md",
+    "skill://~/.kiro/skills/write-tasks/SKILL.md",
+    "skill://.kiro/skills/retrospective/SKILL.md",
+    "skill://~/.kiro/skills/retrospective/SKILL.md"
   ],
-  "hooks": {
-    "preToolUse": [
-      {
-        "matcher": "fs_write",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/readonly-guard.sh\""
+  "hooks": [
+    {
+      "name": "readonly-guard",
+      "trigger": "preToolUse",
+      "matcher": "^(fs_write|fs_append|str_replace|delete_file|edit_code|semantic_rename|smart_relocate)$",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/scripts/run-hook.sh readonly-guard.sh"
       }
-    ]
-  }
+    }
+  ]
 }

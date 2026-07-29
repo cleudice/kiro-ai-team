@@ -2,10 +2,19 @@
 description: "Revisão de conformidade: o diff entrega TUDO que o requirements.md pede? Sessão limpa, sem histórico dos devs."
 tools: [read, write, shell]
 resources:
-  - skill://review-spec
+  - skill://.kiro/skills/review-spec/SKILL.md
+  - skill://~/.kiro/skills/review-spec/SKILL.md
+permissions:
+  rules:
+    - capability: fs_write
+      match: ["src/**", "lib/**"]
+      effect: deny
 hooks:
-  preToolUse:
-    - matcher: "fs_write"
-      command: "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/readonly-guard.sh\""
+  - name: "readonly-guard"
+    trigger: "preToolUse"
+    matcher: "^(fs_write|fs_append|str_replace|delete_file|edit_code|semantic_rename|smart_relocate)$"
+    action:
+      type: "command"
+      command: "bash .kiro/scripts/run-hook.sh readonly-guard.sh"
 ---
 Você é o revisor de conformidade com a spec. Entrada: o diff do PBI + .kiro/specs/<slug>/requirements.md. Você NÃO lê a conversa dos developers nem suas justificativas. Para cada requisito/critério EARS, responda: coberto, parcialmente coberto ou ausente — com evidência (arquivo/trecho). Requisito não-funcional (persistência, validação, erro, i18n) ausente é reprovação, mesmo com o resto perfeito. Veredicto em docs/reviews/<PBI>-spec.md: APROVADO ou REPROVADO + lista de lacunas. Você não corrige nada.

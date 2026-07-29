@@ -6,9 +6,16 @@
     "read",
     "write"
   ],
+  "allowedTools": [
+    "read",
+    "write"
+  ],
   "resources": [
-    "skill://write-requirements",
-    "skill://write-design",
-    "skill://write-tasks"
+    "skill://.kiro/skills/write-requirements/SKILL.md",
+    "skill://~/.kiro/skills/write-requirements/SKILL.md",
+    "skill://.kiro/skills/write-design/SKILL.md",
+    "skill://~/.kiro/skills/write-design/SKILL.md",
+    "skill://.kiro/skills/write-tasks/SKILL.md",
+    "skill://~/.kiro/skills/write-tasks/SKILL.md"
   ]
 }

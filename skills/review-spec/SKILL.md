@@ -1,6 +1,6 @@
 ---
 name: review-spec
-description: (Somente reviewer-spec, sessão limpa) Compara o diff do PBI com requirements.md critério a critério — pega requisito esquecido e scope creep. Use quando pedirem 'revisão de requisitos', 'o diff cobre a spec?', 'conferência de conformidade', antes do merge-gate. Também no modo DRAFT (G0): 'revise a spec antes de implementar', 'a spec está pronta pra congelar?' — revisão adversarial de requirements+design ANTES das tasks.
+description: "(Somente reviewer-spec, sessão limpa) Compara o diff do PBI com requirements.md critério a critério — pega requisito esquecido e scope creep. Use quando pedirem 'revisão de requisitos', 'o diff cobre a spec?', 'conferência de conformidade', antes do merge-gate. Também no modo DRAFT (G0): 'revise a spec antes de implementar', 'a spec está pronta pra congelar?' — revisão adversarial de requirements+design ANTES das tasks."
 ---
 
 # review-spec

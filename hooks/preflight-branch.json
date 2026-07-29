@@ -7,7 +7,7 @@
       "trigger": "SessionStart",
       "action": {
         "type": "command",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/preflight-branch.sh\""
+        "command": "bash .kiro/scripts/run-hook.sh preflight-branch.sh"
       },
       "timeout": 15,
       "enabled": true

@@ -98,6 +98,36 @@ expect_exit 0 "readonly-guard: payload irreconhecível falha ABERTO" -- \
   bash -c 'printf "%s" "???" | bash "$1"' _ "$HS/readonly-guard.sh"
 
 # =========================================================================
+# payload REAL do Kiro (1.11) — {tool_name, tool_input:{...}}, confirmado no
+# bundle instalado (kiro.kiro-agent/dist/extension.js, função j()). Antes desta
+# correção, 'tool_input' não estava na lista de chaves buscadas por
+# guard_payload_path e o guard sempre caía no fallback por grep.
+# =========================================================================
+expect_exit 2 "qa-guard: payload real do Kiro (tool_name/tool_input.path) em src/ bloqueia" -- \
+  bash -c 'printf "%s" "{\"tool_name\": \"read_file\", \"tool_input\": {\"path\": \"src/servico/calc.cs\"}}" | bash "$1"' _ "$HS/qa-blackbox-guard.sh"
+expect_exit 0 "qa-guard: payload real do Kiro (tool_input.path) fora de src/ passa" -- \
+  bash -c 'printf "%s" "{\"tool_name\": \"read_file\", \"tool_input\": {\"path\": \"docs/tests-spec/x.md\"}}" | bash "$1"' _ "$HS/qa-blackbox-guard.sh"
+expect_exit 2 "readonly-guard: payload real do Kiro (tool_name/tool_input.path) em src/ bloqueia" -- \
+  bash -c 'printf "%s" "{\"tool_name\": \"str_replace\", \"tool_input\": {\"path\": \"src/app/main.dart\"}}" | bash "$1"' _ "$HS/readonly-guard.sh"
+
+# =========================================================================
+# run-hook.sh (1.11) — ponto de entrada único que todo "command" de hook chama
+# no lugar de "$(bash .kiro/scripts/kiro-paths.sh)/..." (sintaxe de bash que o
+# Kiro no Windows, rodando o command sob cmd.exe, nunca interpretava — ver
+# hooks/VERIFY.md). Confere que resolve a engine (escopo project) e propaga
+# stdin + exit code do script real.
+# =========================================================================
+RH="$TMP/proj-run-hook"; mkdir -p "$RH/.kiro/scripts" "$RH/.kiro/hooks/scripts"
+cp "$ROOT/scripts/run-hook.sh" "$ROOT/scripts/kiro-paths.sh" "$RH/.kiro/scripts/"
+cp "$HS/readonly-guard.sh" "$HS/guard-common.sh" "$HS/lib.sh" "$RH/.kiro/hooks/scripts/"
+expect_exit 2 "run-hook.sh: resolve a engine (escopo project) e propaga exit 2 do guard" -- \
+  bash -c 'cd "$1" && printf "%s" "{\"file_path\": \"src/app.cs\"}" | bash .kiro/scripts/run-hook.sh readonly-guard.sh' _ "$RH"
+expect_exit 0 "run-hook.sh: propaga exit 0 quando o guard deixa passar" -- \
+  bash -c 'cd "$1" && printf "%s" "{\"file_path\": \"docs/x.md\"}" | bash .kiro/scripts/run-hook.sh readonly-guard.sh' _ "$RH"
+expect_exit 1 "run-hook.sh: sem nome de script, uso incorreto (exit 1, mensagem clara)" -- \
+  bash -c 'cd "$1" && bash .kiro/scripts/run-hook.sh' _ "$RH"
+
+# =========================================================================
 # Código-fonte configurável (tech.md) — o hardcode de src/ quebrava o
 # isolamento em stack cujo código não vive em src/ (Flutter: lib/)
 # =========================================================================

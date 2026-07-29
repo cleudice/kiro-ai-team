@@ -10,7 +10,7 @@ Repo pequeno, regras fortes — quase todas são verificadas mecanicamente pelo 
 
 ## Regras que não são óbvias
 
-- **`agents/*.md` são GERADOS** a partir de `agents/*.json` por `scripts/gen-agent-md.sh` — nunca edite o `.md` à mão; edite o `.json` e rode o gerador. O selftest reprova dessincronia.
+- **`agents/*.json` são GERADOS** a partir de `agents/*.md` por `scripts/gen-agent-profiles.sh` — nunca edite o `.json` à mão; edite o `.md` (o formato que o Kiro realmente carrega na IDE) e rode o gerador. O selftest reprova dessincronia.
 - **Todo agente/skill/hook novo precisa ser referenciado (entre crases) em `OPERACAO.md`**, e todo fragmento `mcp/*.json` em `mcp/README.md` — anti-drift mecânico.
 - **`docs/archive/` só aceita `MIGRATION-v1.md`** — doc histórica nova não entra (é assim que doc derivando em paralelo começou a contradizer o código na v1.5.1).
 - **Caminho `.kiro/<x>.sh` citado em prompt/skill/doc** precisa ser algo que `install.sh` de fato instala — o selftest confere.

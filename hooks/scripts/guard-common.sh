@@ -5,17 +5,20 @@
 # lib.sh. Aqui: extração do path + casamento com os diretórios de código do projeto
 # (tech.md "Código-fonte:", fallback src/ — ver lib.sh:code_dirs).
 #
-# AVISO HONESTO (herdado dos dois guards): o contrato exato de como um
-# action.type=command recebe os dados da chamada de tool (stdin? qual formato
-# JSON? quais chaves?) não está documentado publicamente. Por isso a extração
-# tenta várias vias e, se não reconhecer NADA, o guard FALHA ABERTO (exit 0) —
-# um guard que bloqueia tudo por engano quebraria o agente inteiro, pior que não
-# ter guard. Reforço best-effort; a fonte da verdade é o prompt do agente.
+# O payload de stdin em preToolUse — CONFIRMADO lendo o bundle instalado do Kiro
+# (função `j()`, hooks-*.js): um objeto com {session_id, hook_event_name, cwd,
+# tool_name, tool_input}, onde tool_input é o objeto de argumentos da própria tool
+# (formato interno por tool, ex.: {"path": "..."} pra leitura de arquivo único,
+# {"paths": [...]} pra leitura múltipla — esse nível interno segue sem doc pública,
+# por isso a extração tenta várias chaves conhecidas). Se guard_payload_path não
+# reconhecer NADA, o guard FALHA ABERTO (exit 0) — um guard que bloqueia tudo por
+# engano quebraria o agente inteiro, pior que não ter guard.
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # guard_payload_path <payload> — tenta extrair o caminho do arquivo do payload:
-# 1) JSON com chaves conhecidas (python3); 2) fallback grep por substring que
-# contenha um dos diretórios de código. Vazio = não reconheceu (falhar aberto).
+# 1) JSON com chaves conhecidas, descendo em tool_input (python3); 2) fallback
+# grep por substring que contenha um dos diretórios de código. Vazio = não
+# reconheceu (falhar aberto).
 guard_payload_path() {
   local payload="$1" found d
   found="$(printf '%s' "$payload" | python3 -c "
@@ -27,8 +30,14 @@ except Exception:
 def dig(o):
     if isinstance(o, str):
         return o
+    if isinstance(o, list):
+        for item in o:
+            r = dig(item)
+            if r:
+                return r
+        return None
     if isinstance(o, dict):
-        for k in ('path', 'file_path', 'filePath', 'file', 'input', 'arguments'):
+        for k in ('tool_input', 'path', 'file_path', 'filePath', 'file', 'paths', 'input', 'arguments'):
             if k in o:
                 r = dig(o[k])
                 if r:

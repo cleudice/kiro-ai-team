@@ -31,18 +31,63 @@ for p in glob.glob('skills/*/SKILL.md'):
     if not re.fullmatch(r'[a-z0-9-]{1,64}', n.group(1)): fail.append(f"{p}: name fora do padrão [a-z0-9-]")
     if len(d.group(1))>1024: fail.append(f"{p}: description >1024 chars")
     if len(s.splitlines())>500: fail.append(f"{p}: corpo >500 linhas")
-for p in glob.glob('agents/*.json'):
+# Checagem unificada de todo hook (hooks/*.json, hooks/diagnostics/*.json e os
+# embutidos em agents/*.json — array plano nos dois, confirmado contra o schema
+# real do Kiro, ver scripts/gen-agent-profiles.sh): script referenciado existe,
+# trigger é um dos reconhecidos pelo Kiro (confirmado no bundle instalado,
+# kiro.kiro-agent/dist/extension.js — canônicos + aliases camelCase que o próprio
+# Kiro normaliza), matcher de PreToolUse/PostToolUse só cita nome de tool real
+# (não capability — 'fs_read'/'fs_write' NUNCA batem com tool_name de verdade, é
+# a causa raiz de C2/1.11: os guards por-agente nunca dispararam), e o command não
+# usa sintaxe que só bash entende — no Windows o Kiro roda "command" sob cmd.exe
+# (spawn shell:true → ComSpec), onde `$(...)`/backtick/`&&`/`||`/`;` não são
+# substituição/encadeamento (causa raiz de C3/1.11: hook nenhum rodava no Windows).
+VALID_HOOK_TRIGGERS = {
+    'SessionStart', 'Stop', 'PreToolUse', 'PostToolUse', 'PreTaskExec', 'PostTaskExec',
+    'UserPromptSubmit', 'PostFileCreate', 'PostFileSave', 'PostFileDelete', 'Manual',
+    'sessionStart', 'agentStop', 'promptSubmit', 'preTaskExecution', 'postTaskExecution',
+    'preToolUse', 'postToolUse', 'fileEdited', 'fileCreated', 'fileDeleted', 'userTriggered',
+    'agentSpawn', 'stop', 'userPromptSubmit', 'SessionEnd', 'AfterFileEdit',
+}
+TOOLUSE_TRIGGERS = {'PreToolUse', 'PostToolUse', 'preToolUse', 'postToolUse'}
+KNOWN_TOOL_NAMES = {
+    'read_file', 'read_files', 'read_code', 'list_directory', 'file_search', 'grep_search', 'glob', 'grep',
+    'fs_write', 'fs_append', 'str_replace', 'delete_file', 'edit_code', 'semantic_rename', 'smart_relocate',
+    'execute_bash', 'execute_pwsh', 'run_command',
+}
+UNPORTABLE_TOKENS = ('$(', '`', '&&', '||', ';')
+
+def check_hook_entry(doc_path, h):
+    hname = h.get('name', '?')
+    trg = h.get('trigger')
+    if trg and trg not in VALID_HOOK_TRIGGERS:
+        fail.append(f"{doc_path}: hook '{hname}' trigger '{trg}' fora do conjunto reconhecido pelo Kiro")
+    if trg in TOOLUSE_TRIGGERS:
+        matcher = h.get('matcher')
+        if not matcher:
+            fail.append(f"{doc_path}: hook '{hname}' ({trg}) sem matcher — dispara pra QUALQUER tool")
+        else:
+            cited = set(re.findall(r'[a-z][a-z_]{2,}', matcher))
+            unknown = sorted(cited - KNOWN_TOOL_NAMES)
+            if unknown:
+                fail.append(f"{doc_path}: hook '{hname}' matcher '{matcher}' cita nome(s) de tool desconhecido(s) {unknown} — nomes reais confirmados no bundle do Kiro: {sorted(KNOWN_TOOL_NAMES)}")
+    action = h.get('action') or {}
+    cmd = action.get('command', '') if action.get('type') == 'command' else ''
+    if any(tok in cmd for tok in UNPORTABLE_TOKENS):
+        fail.append(f"{doc_path}: hook '{hname}' command usa sintaxe que cmd.exe (Windows) não interpreta: {cmd!r}")
+    m = re.search(r'run-hook\.sh\s+(\S+\.sh)\b', cmd)
+    if m and not os.path.exists(os.path.join('hooks', 'scripts', m.group(1))):
+        fail.append(f"{doc_path}: hook '{hname}' referencia hooks/scripts/{m.group(1)}, que não existe")
+
+for p in glob.glob('agents/*.json') + glob.glob('hooks/*.json') + glob.glob('hooks/diagnostics/*.json'):
     d = json.load(open(p, encoding='utf-8'))
-    for entries in d.get('hooks', {}).values():
-        for e in entries:
-            cmd = e.get('command', '')
-            m = re.search(r'\.kiro/hooks/(scripts/\S+\.sh)', cmd)
-            if m and not os.path.exists(os.path.join('hooks', m.group(1))):
-                fail.append(f"{p}: hook referencia {m.group(1)} que não existe em hooks/")
+    for e in d.get('hooks', []):
+        check_hook_entry(p, e)
 # P0-1 — frontmatter dos agents/*.md precisa ser YAML parseável de verdade: o check
-# de sincronia (gen-agent-md.sh --check) compara texto, não valida YAML — foi assim
-# que 4 agentes com ':' na description ficaram com frontmatter inválido sem ninguém
-# reprovar. Usa PyYAML se existir; senão, checa que valores com ': ' estão entre aspas.
+# de sincronia (gen-agent-profiles.sh --check) compara texto, não valida YAML — foi
+# assim que 4 agentes com ':' na description ficaram com frontmatter inválido sem
+# ninguém reprovar. Usa PyYAML se existir; senão, checa que valores com ': ' estão
+# entre aspas.
 try:
     import yaml as _yaml
 except ImportError:
@@ -83,14 +128,28 @@ for p in sh_doc_sources:
         rel = m.group(1)
         if rel not in installed_sh:
             fail.append(f"{p}: cita .kiro/{rel}, mas install.sh não instala esse caminho (installed_sh não bate)")
-# M5 — skill://X citado em agents/*.json precisa corresponder a uma skill real
-# (hoje bate por sorte nos 15; isto vira reprovação mecânica se algum dia divergir).
+# M5/C1 — skill://X citado em agents/*.md precisa: (a) usar a forma de CAMINHO que
+# o resolvedor real do Kiro aceita — confirmado no bundle (kiro.kiro-agent/dist/
+# extension.js): 'skill://<nome>' sozinho resolve pra join(workspaceRoot, '<nome>')
+# e NUNCA aponta pro SKILL.md de verdade (readFileSync falha, silencioso — a skill
+# simplesmente não carrega, nenhum agente jamais viu nenhuma das 14 skills antes
+# desta correção); só 'skill://.kiro/skills/<nome>/SKILL.md' (relativo ao
+# workspace) e 'skill://~/.kiro/skills/<nome>/SKILL.md' (home, expansão de '~')
+# resolvem de verdade; (b) corresponder a uma skill real em skills/.
+SKILL_URI_RE = re.compile(r'^skill://(?:\.kiro|~/\.kiro)/skills/([a-z0-9-]+)/SKILL\.md$')
 skill_names = {os.path.basename(os.path.dirname(p)) for p in glob.glob('skills/*/SKILL.md')}
-for p in glob.glob('agents/*.json'):
-    d = json.load(open(p, encoding='utf-8'))
-    for r in d.get('resources', []):
-        if r.startswith('skill://') and r[len('skill://'):] not in skill_names:
-            fail.append(f"{p}: resource {r} não corresponde a nenhuma pasta em skills/")
+for p in glob.glob('agents/*.md'):
+    s = open(p, encoding='utf-8').read()
+    m = re.match(r'^---\n(.*?)\n---\n', s, re.S)
+    if not m: continue  # já reprovado acima (sem frontmatter)
+    for uri in re.findall(r'skill://\S+', m.group(1)):
+        um = SKILL_URI_RE.match(uri)
+        if not um:
+            fail.append(f"{p}: resource '{uri}' não usa a forma de caminho que o Kiro resolve "
+                         f"(skill://.kiro/skills/<nome>/SKILL.md ou skill://~/.kiro/skills/<nome>/SKILL.md) — "
+                         f"'skill://<nome>' sozinho nunca resolve, confirmado no bundle do Kiro")
+        elif um.group(1) not in skill_names:
+            fail.append(f"{p}: resource {uri} não corresponde a nenhuma pasta em skills/")
 for p in glob.glob('steering-base/**/*.md', recursive=True):
     s=open(p, encoding='utf-8').read()
     # p.replace('\\','/'): glob.glob no Windows devolve separador '\\' — o teste
@@ -99,7 +158,7 @@ for p in glob.glob('steering-base/**/*.md', recursive=True):
     pn = p.replace('\\', '/')
     if 'templates/' in pn or '/global/' in pn: continue
     if not s.startswith('---'): fail.append(f"{p}: sem frontmatter inclusion")
-link_docs = (['README.md','OPERACAO.md','mcp/README.md','CHANGELOG.md','hooks/VERIFY.md',
+link_docs = (['README.md','OPERACAO.md','mcp/README.md','CHANGELOG.md','hooks/VERIFY.md','hooks/README.md',
               'CONTRIBUTING.md','SECURITY.md']
              + glob.glob('examples/*/README.md') + glob.glob('skills/*/SKILL.md') + glob.glob('agents/*.md'))
 for doc in link_docs:
@@ -121,18 +180,16 @@ for p in glob.glob('skills/*/SKILL.md'):
     if f"`{name}`" not in op: fail.append(f"OPERACAO.md: skill '{name}' não referenciada")
 # hooks/*.json e mcp/*.json também precisam aparecer referenciados em algum doc
 # operacional — mesmo raciocínio anti-drift acima (M4), agora cobrindo o que
-# ficou de fora na primeira rodada (B3 da segunda auditoria).
+# ficou de fora na primeira rodada (B3 da segunda auditoria). Trigger/matcher/
+# command de cada hook já são checados no bloco unificado acima.
 mcp_readme = open('mcp/README.md', encoding='utf-8').read() if os.path.exists('mcp/README.md') else ''
-HOOK_TRIGGERS = {'PostFileSave', 'PostFileCreate', 'PostTaskExec', 'SessionStart', 'preToolUse'}
+hooks_readme = open('hooks/README.md', encoding='utf-8').read() if os.path.exists('hooks/README.md') else ''
+if not hooks_readme: fail.append("hooks/README.md ausente — é onde 'o que copiar' precisa estar respondido")
 for p in sorted(glob.glob('hooks/*.json')):
     base = os.path.basename(p)
     name = base[:-len('.json')]
-    if f"`{name}`" not in op: fail.append(f"OPERACAO.md: hook '{name}' não referenciado")
-    # trigger fora do conjunto conhecido = typo silencioso (hook nunca dispara)
-    hj = json.load(open(p, encoding='utf-8'))
-    trg = (hj.get('when') or {}).get('type') or hj.get('trigger')
-    if trg and trg not in HOOK_TRIGGERS:
-        fail.append(f"{p}: trigger '{trg}' fora do conjunto conhecido {sorted(HOOK_TRIGGERS)}")
+    if f"`{name}`" not in op and f"`{name}`" not in hooks_readme:
+        fail.append(f"OPERACAO.md/hooks/README.md: hook '{name}' não referenciado em nenhum dos dois")
 # bloco sincronizado entre review-spec e review-code (marcador <!-- sync: veredicto-commit -->):
 # a linha imediatamente após o marcador precisa ser idêntica nos dois — duplicação
 # aceita conscientemente, drift não.
@@ -167,7 +224,7 @@ for p in glob.glob('docs/archive/*'):
 print('\n'.join('✘ '+f for f in fail) if fail else '✔ frontmatters, nomes, limites e links OK')
 sys.exit(1 if fail else 0)
 PY
-bash scripts/gen-agent-md.sh --check && ok "agents/*.md em sincronia com agents/*.json" || bad "agents/*.md fora de sincronia — rode scripts/gen-agent-md.sh"
+bash scripts/gen-agent-profiles.sh --check && ok "agents/*.json em sincronia com agents/*.md" || bad "agents/*.json fora de sincronia — rode scripts/gen-agent-profiles.sh"
 bash tests/test-check-gates.sh || bad "tests/test-check-gates.sh reprovou"
 bash tests/test-install.sh || bad "tests/test-install.sh reprovou"
 bash tests/test-worktree.sh || bad "tests/test-worktree.sh reprovou"

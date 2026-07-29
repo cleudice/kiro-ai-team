@@ -7,16 +7,26 @@
     "write",
     "shell"
   ],
-  "resources": [
-    "skill://write-blackbox-tests",
-    "skill://verify-change"
+  "allowedTools": [
+    "read",
+    "write",
+    "shell"
   ],
-  "hooks": {
-    "preToolUse": [
-      {
-        "matcher": "fs_read",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/qa-blackbox-guard.sh\""
+  "resources": [
+    "skill://.kiro/skills/write-blackbox-tests/SKILL.md",
+    "skill://~/.kiro/skills/write-blackbox-tests/SKILL.md",
+    "skill://.kiro/skills/verify-change/SKILL.md",
+    "skill://~/.kiro/skills/verify-change/SKILL.md"
+  ],
+  "hooks": [
+    {
+      "name": "qa-blackbox-guard",
+      "trigger": "preToolUse",
+      "matcher": "^(read_file|read_files|read_code|list_directory|file_search|grep_search|glob|grep)$",
+      "action": {
+        "type": "command",
+        "command": "bash .kiro/scripts/run-hook.sh qa-blackbox-guard.sh"
       }
-    ]
-  }
+    }
+  ]
 }

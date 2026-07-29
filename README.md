@@ -73,7 +73,7 @@ Pré-requisito: `python3` no PATH (o installer usa pro manifesto JSON e falha ce
 ./install.sh /caminho/do/projeto --uninstall      # remove agents/skills/hooks-scripts do time e limpa o que o installer pôs no .gitignore (preserva steering/docs do projeto)
 ```
 
-> Sobre os hooks: nenhum dos triggers (`PostFileSave`, `PostTaskExec`, `SessionStart`, `PostFileCreate`) foi verificado empiricamente contra um Kiro real ainda — coerência com a nossa própria filosofia ("autorrelato não conta") exige dizer isso aqui. Procedimento e status: [hooks/VERIFY.md](hooks/VERIFY.md). Trate a mecanização por hook como best-effort; os gates em disco não dependem dela.
+> Sobre os hooks: quais copiar, o que cada um faz, e o que já vem embutido sem precisar copiar nada — [hooks/README.md](hooks/README.md). Trigger, formato de `command` e payload de `preToolUse` foram conferidos contra o schema real do Kiro (bundle instalado); confirmação empírica (rodar num Kiro de verdade) ainda está pendente — status: [hooks/VERIFY.md](hooks/VERIFY.md). Trate a mecanização por hook como best-effort; os gates em disco não dependem dela.
 
 Steering e docs/ são sempre por projeto (steering do Kiro é por workspace). Detalhes, `--stack` e trade-offs: [OPERACAO.md](OPERACAO.md).
 

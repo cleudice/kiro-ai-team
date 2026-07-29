@@ -68,6 +68,9 @@ V1="$(cat "$K1/.kiro-ai-team-version" 2>/dev/null | tr -d '[:space:]')"
 # apesar de todo prompt/skill citar ".kiro/scripts/worktree.sh".
 assert_exists "$K1/scripts/worktree.sh"
 assert_exists "$K1/scripts/kiro-paths.sh"
+# run-hook.sh (1.11) — ponto de entrada único que todo "command" de hook chama;
+# sem ele instalado, todo hooks/*.json e guard por-agente aponta pro vazio.
+assert_exists "$K1/scripts/run-hook.sh"
 [ -x "$K1/scripts/worktree.sh" ] || chmod +x "$K1/scripts/worktree.sh" 2>/dev/null
 RESOLVED1="$(bash "$K1/scripts/kiro-paths.sh")"
 [ "$RESOLVED1" = "$K1" ] && pass "kiro-paths.sh resolve a engine local no escopo project" \
@@ -168,6 +171,7 @@ assert_exists "$KH/steering/principios.md"
 # de projeto por perto) e um .kiro-ai-team-paths auto-referente.
 assert_exists "$KH/scripts/worktree.sh"
 assert_exists "$KH/scripts/kiro-paths.sh"
+assert_exists "$KH/scripts/run-hook.sh"
 assert_exists "$KH/.kiro-ai-team-paths"
 
 # =========================================================================
@@ -183,6 +187,7 @@ KDH="$DH/.kiro"
 assert_absent "$KDH/agents"                     # hybrid: sem engine local, evita conflito de nomes
 assert_exists "$KDH/scripts/worktree.sh"         # camada fina SEMPRE presente no projeto
 assert_exists "$KDH/scripts/kiro-paths.sh"
+assert_exists "$KDH/scripts/run-hook.sh"
 assert_exists "$KDH/.kiro-ai-team-paths"
 assert_exists "$KH2/agents/orchestrator.json"    # engine de verdade mora em KIRO_HOME
 RESOLVED_HYBRID="$(bash "$KDH/scripts/kiro-paths.sh")"
@@ -200,6 +205,7 @@ assert_exists "$RESOLVED_HYBRID/hooks/scripts/check-oracle.sh"
 # sem tocar steering/docs do projeto (mesma regra do escopo project)
 bash "$INSTALL" "$DH" --scope hybrid --kiro-home "$KH2" --uninstall >"$TMP"/install-out-5c.log 2>&1
 assert_absent "$KDH/scripts/worktree.sh"
+assert_absent "$KDH/scripts/run-hook.sh"
 assert_absent "$KH2/agents/orchestrator.json"
 # manifesto do projeto também sai — deixá-lo apontando scripts inexistentes
 # faria um --update posterior ler um manifesto mentiroso
@@ -227,6 +233,7 @@ assert_absent "$D6/.kiro/skills/merge-gate"
 # desta correção ficavam órfãos (não registrados em manifesto nenhum).
 assert_absent "$D6/.kiro/scripts/worktree.sh"
 assert_absent "$D6/.kiro/scripts/kiro-paths.sh"
+assert_absent "$D6/.kiro/scripts/run-hook.sh"
 # hooks/scripts/*.sh também saem (registrados em hook_scripts no manifesto);
 # antes ficavam órfãos — mesma classe do I5, corrigida um nível abaixo
 assert_absent "$D6/.kiro/hooks/scripts/qa-blackbox-guard.sh"

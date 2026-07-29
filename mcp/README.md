@@ -21,3 +21,21 @@ Auto-aprovamos só **leituras de tracker** (`getJiraIssue`/`search`, `wit_get_wo
 ## Interpolação de variáveis
 
 `${VAR}` é expandido a partir do ambiente do processo que roda o Kiro. Prefira sempre colocar segredos em `env`/`headers`, nunca dentro de `args` (evita vazar em logs de processo que exibem a linha de comando completa).
+
+## Um agente só alcança MCP se declarar isso — mesclar o fragmento aqui não basta
+
+Até a 1.11, nenhum `agents/*.json`/`.md` declarava acesso a MCP — mesclar um fragmento
+deste diretório em `mcp.json` deixava o servidor configurado no Kiro, mas **nenhum
+agente do time conseguia chamá-lo**: `tools` era sempre `[read, write, shell]`, sem a
+tag `@mcp`, e o campo `includeMcpJson` (que controla se o `mcp.json` efetivo do projeto
+é injetado no agente) nunca era setado — confirmado no schema do bundle instalado
+(`kiro.kiro-agent/dist/extension.js`). `triage-issue`/`resolve-issue` "contra
+Jira/Azure Boards/GitHub" rodava sem nenhuma via de acesso real ao tracker.
+
+Hoje só **`orchestrator`** declara `includeMcpJson: true` + `"@mcp"` em `tools`
+(`agents/orchestrator.md`) — é quem de fato invoca `triage-issue`/`resolve-issue` no
+próprio prompt. Os demais "dono(s)" na tabela acima descrevem quem **consome** o dado
+já normalizado pelo orchestrator (o brief em `docs/issues/`), não quem chama o MCP
+diretamente. Se o seu projeto precisa que outro agente (ex.: `dev-flutter` pra
+Crashlytics, `auditor` pra SQLcl) fale com um servidor MCP por conta própria, adicione
+os mesmos dois campos ao `agents/<nome>.md` correspondente antes de instalar.

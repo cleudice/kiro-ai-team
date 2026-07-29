@@ -8,7 +8,7 @@
       "matcher": ".*\\.sql$",
       "action": {
         "type": "command",
-        "command": "bash \"$(bash .kiro/scripts/kiro-paths.sh)/hooks/scripts/check-oracle.sh\""
+        "command": "bash .kiro/scripts/run-hook.sh check-oracle.sh"
       },
       "timeout": 30,
       "enabled": true

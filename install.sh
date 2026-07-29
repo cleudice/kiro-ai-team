@@ -161,7 +161,7 @@ install_engine() {  # $1 = raiz .kiro de destino
   local NEW_AGENTS=()
   for a in $CORE_AGENTS $(stack_dev_agents); do
     _x cp -f "$SRC/agents/$a" "$K/agents/"; NEW_AGENTS+=("$a")
-    md="${a%.json}.md"                    # CLI lê .json, IDE lê .md (gen-agent-md.sh) — os dois vão juntos
+    md="${a%.json}.md"                    # IDE lê .md (fonte), CLI lê .json (gerado — scripts/gen-agent-profiles.sh) — os dois vão juntos
     if [ -f "$SRC/agents/$md" ]; then _x cp -f "$SRC/agents/$md" "$K/agents/"; NEW_AGENTS+=("$md"); fi
   done
   # remove-e-recopia por skill: cp -rf sozinho nunca apaga arquivo que MORREU dentro
@@ -177,7 +177,7 @@ install_engine() {  # $1 = raiz .kiro de destino
 
   # scripts referenciados por hooks EMBUTIDOS em agente (ex.: qa-blackbox-guard.sh em
   # agents/qa-blackbox.json) são dependência de carga, não opcionais como os
-  # hooks/*.json de conveniência (esses continuam cópia manual, ver OPERACAO.md) —
+  # hooks/*.json de conveniência (esses continuam cópia manual, ver hooks/README.md) —
   # sempre vão junto da engine, e entram no manifesto pra saírem no --uninstall.
   local NEW_HOOK_SCRIPTS=()
   if [ -d "$SRC/hooks/scripts" ]; then
@@ -187,19 +187,22 @@ install_engine() {  # $1 = raiz .kiro de destino
     for f in "$SRC"/hooks/scripts/*.sh; do NEW_HOOK_SCRIPTS+=("$(basename "$f")"); done
   fi
 
-  # scripts/{worktree,kiro-paths}.sh (B1) — worktree.sh é dependência de carga
-  # (orchestrator/qa-blackbox citam "1 PBI = 1 worktree" no próprio prompt) e
+  # scripts/{worktree,kiro-paths,run-hook}.sh (B1) — worktree.sh é dependência de
+  # carga (orchestrator/qa-blackbox citam "1 PBI = 1 worktree" no próprio prompt) e
   # antes desta correção NUNCA era instalado em lugar nenhum; kiro-paths.sh é o
   # resolvedor que faz o caminho fixo `.kiro/scripts/...` funcionar também em
-  # hybrid/global, onde a engine mora em $KIRO_HOME (B3). Sempre vão junto.
+  # hybrid/global, onde a engine mora em $KIRO_HOME (B3); run-hook.sh (1.11) é o
+  # ponto de entrada único que todo "command" de hook chama — sem ele nenhum hook
+  # roda no Windows (ver comentário no próprio arquivo). Sempre vão junto.
   _x mkdir -p "$K/scripts"
   _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
   _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
+  _x cp -f "$SRC/scripts/run-hook.sh"   "$K/scripts/"
   # bit de execução explícito: tudo é invocado como 'bash <script>', mas a forma
   # citada em prompts/docs ('.kiro/scripts/worktree.sh start X') depende do bit
   # ter sobrevivido ao cp — não confiar nisso.
-  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh"
-  local NEW_SCRIPTS=(worktree.sh kiro-paths.sh)
+  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh" "$K/scripts/run-hook.sh"
+  local NEW_SCRIPTS=(worktree.sh kiro-paths.sh run-hook.sh)
   # auto-referência: se alguém rodar os scripts direto daqui (ex.: escopo global
   # puro, sem camada de projeto por perto), kiro-paths.sh já resolve pra si mesmo
   # sem este arquivo — mas gravá-lo deixa explícito e uniforme com install_project_layer.
@@ -295,7 +298,8 @@ install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default:
   _x mkdir -p "$K/scripts"
   _x cp -f "$SRC/scripts/worktree.sh"   "$K/scripts/"
   _x cp -f "$SRC/scripts/kiro-paths.sh" "$K/scripts/"
-  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh"
+  _x cp -f "$SRC/scripts/run-hook.sh"   "$K/scripts/"
+  _x chmod +x "$K/scripts/worktree.sh" "$K/scripts/kiro-paths.sh" "$K/scripts/run-hook.sh"
   if [ "$DRYRUN" != "1" ]; then
     printf 'KIRO_ENGINE=%q\n' "$ENGINE" > "$K/.kiro-ai-team-paths"
   else
@@ -312,7 +316,7 @@ install_project_layer() {  # $1 = raiz do projeto, $2 = raiz da engine (default:
   else
     echo "  (dry-run) garantir entradas de .gate-ledger/.merge-count/*-g1-run.log em $P/.gitignore"
   fi
-  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "@keep@" "@keep@" "@keep@" "worktree.sh kiro-paths.sh"
+  _x write_manifest "$K/$VERFILE" "$VER" "$SCOPE" "@keep@" "@keep@" "@keep@" "worktree.sh kiro-paths.sh run-hook.sh"
   _x rm -f "$K/$OLD_VERFILE"
   echo "  ✔ camada do projeto → $P (steering + docs/)"
 }
@@ -411,7 +415,7 @@ case "$SCOPE" in
     else
       echo "  ↷ steering global já existe (preservado): $KIRO_HOME/steering/principios.md"
     fi
-    echo "  ⚠ quirks: workspace vence global em conflito; evite fileMatch no global; arquivo real, sem symlink; IDE ignora KIRO_HOME (só a CLI respeita)."
+    echo "  ⚠ quirks: workspace vence global em conflito; evite fileMatch no global; arquivo real, sem symlink; a IDE lê sempre \$HOME/.kiro (ignora a variável de ambiente KIRO_HOME — só a CLI a respeita); use --kiro-home só se essa engine for consumida via CLI."
     echo "  ℹ steering de PROJETO continua por workspace. Rode depois, em cada repo:"
     echo "      ./install.sh <projeto> --scope hybrid"
     echo "  ℹ MCP global: mescle fragmentos de $SRC/mcp em $KIRO_HOME/settings/mcp.json"
@@ -427,7 +431,7 @@ case "$SCOPE" in
 esac
 
 if [ "$MODE" = "install" ]; then
-  echo "  ℹ hooks opcionais em $SRC/hooks (copiar p/ .kiro/hooks do projeto)"
+  echo "  ℹ hooks opcionais em $SRC/hooks/*.json (copiar os que fizerem sentido p/ .kiro/hooks do projeto — guia: hooks/README.md)"
   echo "  ℹ fragmentos MCP em $SRC/mcp (projeto: .kiro/settings/mcp.json | global: $KIRO_HOME/settings/mcp.json)"
 fi
 echo "✔ concluído"
